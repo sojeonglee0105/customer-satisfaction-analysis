@@ -1,0 +1,7 @@
+{
+  "target_column": "rpi",
+  "description": "customer_satisfaction_full_columns.xlsx — supervised learning target (Y)",
+  "train_csv": "customer_satisfaction_train.csv",
+  "test_csv": "customer_satisfaction_test.csv",
+  "source_excel": "../customer_satisfaction_ver2/customer_satisfaction_full_columns.xlsx"
+}

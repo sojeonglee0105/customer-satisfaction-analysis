@@ -1,0 +1,4 @@
+# 스크립트는 저장소 루트의 data/customer_satisfaction_ver3/*.csv 를 사용합니다.
+# 폴더 루트의 복사본은 중복이므로 버전 관리에서 제외합니다.
+customer_satisfaction_train.csv
+customer_satisfaction_test.csv

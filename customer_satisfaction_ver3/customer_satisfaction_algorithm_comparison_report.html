@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>고객만족 알고리즘 비교 리포트</title>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 24px 32px 48px; color: #111; max-width: 1100px; line-height: 1.55; }
+    h1 { font-size: 1.4rem; border-bottom: 2px solid #0d9488; padding-bottom: 8px; }
+    h2 { font-size: 1.05rem; color: #134e4a; margin-top: 26px; }
+    h3 { font-size: 0.98rem; color: #0f766e; margin-top: 18px; }
+    p.meta { color: #555; font-size: 0.9rem; }
+    table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 0.86rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 7px 9px; }
+    th { background: #ecfdf5; text-align: left; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .note { background: #f8fafc; border-left: 4px solid #64748b; padding: 12px 16px; margin: 14px 0; }
+    pre.params { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; font-size: 0.74rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>고객만족 RPI 예측 — 알고리즘 비교</h1>
+  <p class="meta">
+    학습: <code>data\customer_satisfaction_ver3\customer_satisfaction_train.csv</code><br/>
+    평가: <code>data\customer_satisfaction_ver3\customer_satisfaction_test.csv</code><br/>
+    타깃: <strong>rpi</strong> (1~5 등급, 지표 계산용 0~4 인코딩)<br/>
+    생성: 2026-05-13 15:43
+  </p>
+
+  <div class="note">
+    <strong>Feature engineering</strong><br/>
+    이전 <code>customer_satisfaction_fe_benchmark_report.html</code>에서 테스트 Macro AUROC가 가장 높았던 조합과 동일한
+    <strong>실험 1·전체 특성</strong> 전처리(수치: 중앙값 대치+StandardScaler, 범주: OneHotEncoder, <strong>67</strong>차원)를 사용합니다.
+  </div>
+
+  <div class="note">
+    <strong>5회 반복 실험 (random seed)</strong><br/>
+    동일 데이터·동일 하이퍼파라미터에서 <code>random_state</code>만
+    <strong>42, 1337, 7, 99, 31415</strong> 로 바꿔 각각 전체 파이프라인을 학습·평가했습니다 (총 <strong>5</strong>회/알고리즘).
+    트리/포레스트/LightGBM의 내부 무작위성과 로지스틱 수치해에 영향을 줍니다. 표본 수가 작아(n=5) 검정은 탐색적 해석에 한합니다.
+  </div>
+
+  <h2>1. 학습 결과표 (5회 반복: 평균 ± 표본표준편차)</h2>
+  <p class="meta">동일 테스트 분할에서의 지표입니다. AUROC는 one-vs-rest, F1은 sklearn 정의의 Macro/Micro입니다.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th>Macro F1</th>
+        <th>Micro F1</th>
+        <th>Macro AUROC</th>
+        <th>Micro AUROC</th>
+        <th>학습시간 (초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>0. Decision Tree (baseline)</td><td class='num'>0.8227 ± 0.0000</td><td class='num'>0.8400 ± 0.0000</td><td class='num'>0.9496 ± 0.0018</td><td class='num'>0.9599 ± 0.0022</td><td class='num'>0.0540 ± 0.0211</td></tr>
+<tr><td>1. Random Forest</td><td class='num'>0.9516 ± 0.0029</td><td class='num'>0.9556 ± 0.0027</td><td class='num'>0.9977 ± 0.0001</td><td class='num'>0.9981 ± 0.0001</td><td class='num'>1.5947 ± 0.2794</td></tr>
+<tr><td>2. LightGBM</td><td class='num'>0.9594 ± 0.0009</td><td class='num'>0.9596 ± 0.0010</td><td class='num'>0.9978 ± 0.0001</td><td class='num'>0.9982 ± 0.0001</td><td class='num'>19.7423 ± 16.8644</td></tr>
+<tr><td>3. Logistic Regression</td><td class='num'>0.9739 ± 0.0000</td><td class='num'>0.9778 ± 0.0000</td><td class='num'>0.9994 ± 0.0000</td><td class='num'>0.9995 ± 0.0000</td><td class='num'>0.1389 ± 0.0546</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2. 통계 검정</h2>
+  <h3>2-1. Friedman 검정 (알고리즘 간 차이, 시드=블록)</h3>
+  <p class="meta">각 지표에 대해 5개 시드에서의 4개 알고리즘 점수를 대응 표본으로 두고 Friedman χ² 검정을 수행했습니다.
+     유의하면 “시드에 따른 변동을 통제한 상태에서 알고리즘 간 분포가 동일하지 않다”는 탐색적 결론입니다.</p>
+  <table>
+    <thead>
+      <tr><th>지표</th><th>χ² 통계량</th><th>p-value</th><th>유의성 (α=0.05)</th></tr>
+    </thead>
+    <tbody>
+<tr><td>macro_f1</td><td class='num'>15.0000</td><td class='num'>0.001817</td><td>p &lt; 0.05</td></tr>
+<tr><td>micro_f1</td><td class='num'>15.0000</td><td class='num'>0.001817</td><td>p &lt; 0.05</td></tr>
+<tr><td>macro_auroc</td><td class='num'>14.0400</td><td class='num'>0.002851</td><td>p &lt; 0.05</td></tr>
+<tr><td>micro_auroc</td><td class='num'>14.0400</td><td class='num'>0.002851</td><td>p &lt; 0.05</td></tr>
+<tr><td>train_sec</td><td class='num'>15.0000</td><td class='num'>0.001817</td><td>p &lt; 0.05</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2-2. Wilcoxon 부호-순위 검정 (vs Decision Tree, 시드별 쌍체)</h3>
+  <p class="meta">각 지표·각 비교마다 5개 시드에서의 점수 쌍에 Wilcoxon <code>two-sided</code> 검정.
+     다중비교 완화를 위해 원시 p-value에 Bonferroni 계수 <strong>15</strong> (3 알고리즘 × 5 지표)를 곱해 <code>p_bonferroni</code>를 보고했습니다.
+     <code>mean_diff</code>는 (비교 알고리즘 − 베이스라인)의 시드별 평균입니다.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>비교</th><th>지표</th><th>mean_diff</th><th>통계량</th><th>p (raw)</th><th>p (Bonferroni)</th><th>p_adj&lt;0.05?</th><th>비고</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>1. Random Forest vs 0. Decision Tree (baseline)</td><td>macro_f1</td><td class='num'>+0.128919</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>1. Random Forest vs 0. Decision Tree (baseline)</td><td>micro_f1</td><td class='num'>+0.115556</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>1. Random Forest vs 0. Decision Tree (baseline)</td><td>macro_auroc</td><td class='num'>+0.048149</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>1. Random Forest vs 0. Decision Tree (baseline)</td><td>micro_auroc</td><td class='num'>+0.038124</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>1. Random Forest vs 0. Decision Tree (baseline)</td><td>train_sec</td><td class='num'>+1.540680</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>2. LightGBM vs 0. Decision Tree (baseline)</td><td>macro_f1</td><td class='num'>+0.136731</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>2. LightGBM vs 0. Decision Tree (baseline)</td><td>micro_f1</td><td class='num'>+0.119556</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>2. LightGBM vs 0. Decision Tree (baseline)</td><td>macro_auroc</td><td class='num'>+0.048240</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>2. LightGBM vs 0. Decision Tree (baseline)</td><td>micro_auroc</td><td class='num'>+0.038220</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>2. LightGBM vs 0. Decision Tree (baseline)</td><td>train_sec</td><td class='num'>+19.688321</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>3. Logistic Regression vs 0. Decision Tree (baseline)</td><td>macro_f1</td><td class='num'>+0.151190</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>3. Logistic Regression vs 0. Decision Tree (baseline)</td><td>micro_f1</td><td class='num'>+0.137778</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>3. Logistic Regression vs 0. Decision Tree (baseline)</td><td>macro_auroc</td><td class='num'>+0.049842</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>3. Logistic Regression vs 0. Decision Tree (baseline)</td><td>micro_auroc</td><td class='num'>+0.039582</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+<tr><td>3. Logistic Regression vs 0. Decision Tree (baseline)</td><td>train_sec</td><td class='num'>+0.084973</td><td class='num'>0.000000</td><td class='num'>0.062500</td><td class='num'>0.937500</td><td>아니오</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. 시드별 상세 결과 (원시값)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>random_state</th><th>알고리즘</th><th>Macro F1</th><th>Micro F1</th><th>Macro AUROC</th><th>Micro AUROC</th><th>학습시간(초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td class='num'>42</td><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9499</td><td class='num'>0.9606</td><td class='num'>0.0833</td></tr>
+<tr><td class='num'>42</td><td>1. Random Forest</td><td class='num'>0.9514</td><td class='num'>0.9556</td><td class='num'>0.9977</td><td class='num'>0.9981</td><td class='num'>1.9832</td></tr>
+<tr><td class='num'>42</td><td>2. LightGBM</td><td class='num'>0.9577</td><td class='num'>0.9578</td><td class='num'>0.9977</td><td class='num'>0.9980</td><td class='num'>39.1762</td></tr>
+<tr><td class='num'>42</td><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.1147</td></tr>
+<tr><td class='num'>1337</td><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9509</td><td class='num'>0.9620</td><td class='num'>0.0338</td></tr>
+<tr><td class='num'>1337</td><td>1. Random Forest</td><td class='num'>0.9483</td><td class='num'>0.9511</td><td class='num'>0.9977</td><td class='num'>0.9981</td><td class='num'>1.3225</td></tr>
+<tr><td class='num'>1337</td><td>2. LightGBM</td><td class='num'>0.9598</td><td class='num'>0.9600</td><td class='num'>0.9979</td><td class='num'>0.9982</td><td class='num'>29.1214</td></tr>
+<tr><td class='num'>1337</td><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.1442</td></tr>
+<tr><td class='num'>7</td><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9515</td><td class='num'>0.9619</td><td class='num'>0.0612</td></tr>
+<tr><td class='num'>7</td><td>1. Random Forest</td><td class='num'>0.9537</td><td class='num'>0.9578</td><td class='num'>0.9978</td><td class='num'>0.9981</td><td class='num'>1.3904</td></tr>
+<tr><td class='num'>7</td><td>2. LightGBM</td><td class='num'>0.9599</td><td class='num'>0.9600</td><td class='num'>0.9978</td><td class='num'>0.9982</td><td class='num'>2.1816</td></tr>
+<tr><td class='num'>7</td><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.2317</td></tr>
+<tr><td class='num'>99</td><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9483</td><td class='num'>0.9580</td><td class='num'>0.0584</td></tr>
+<tr><td class='num'>99</td><td>1. Random Forest</td><td class='num'>0.9493</td><td class='num'>0.9556</td><td class='num'>0.9977</td><td class='num'>0.9981</td><td class='num'>1.4940</td></tr>
+<tr><td class='num'>99</td><td>2. LightGBM</td><td class='num'>0.9598</td><td class='num'>0.9600</td><td class='num'>0.9978</td><td class='num'>0.9981</td><td class='num'>1.8624</td></tr>
+<tr><td class='num'>99</td><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.1009</td></tr>
+<tr><td class='num'>31415</td><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9473</td><td class='num'>0.9572</td><td class='num'>0.0331</td></tr>
+<tr><td class='num'>31415</td><td>1. Random Forest</td><td class='num'>0.9554</td><td class='num'>0.9578</td><td class='num'>0.9976</td><td class='num'>0.9980</td><td class='num'>1.7831</td></tr>
+<tr><td class='num'>31415</td><td>2. LightGBM</td><td class='num'>0.9599</td><td class='num'>0.9600</td><td class='num'>0.9978</td><td class='num'>0.9982</td><td class='num'>26.3699</td></tr>
+<tr><td class='num'>31415</td><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.1032</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. 대표 실행 (random_state=42) — 직전 리포트와 동일 조건</h2>
+  <p class="meta">단일 시드 기준 표·베이스라인 대비 차이(절대차)입니다.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th>Macro F1</th>
+        <th>Micro F1</th>
+        <th>Macro AUROC</th>
+        <th>Micro AUROC</th>
+        <th>학습시간 (초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>0. Decision Tree (baseline)</td><td class='num'>0.8227</td><td class='num'>0.8400</td><td class='num'>0.9499</td><td class='num'>0.9606</td><td class='num'>0.0833</td></tr>
+<tr><td>1. Random Forest</td><td class='num'>0.9514</td><td class='num'>0.9556</td><td class='num'>0.9977</td><td class='num'>0.9981</td><td class='num'>1.9832</td></tr>
+<tr><td>2. LightGBM</td><td class='num'>0.9577</td><td class='num'>0.9578</td><td class='num'>0.9977</td><td class='num'>0.9980</td><td class='num'>39.1762</td></tr>
+<tr><td>3. Logistic Regression</td><td class='num'>0.9739</td><td class='num'>0.9778</td><td class='num'>0.9994</td><td class='num'>0.9995</td><td class='num'>0.1147</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4-1. Decision Tree 베이스라인 대비 차이 (seed=42)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th>Δ Macro F1</th>
+        <th>Δ Micro F1</th>
+        <th>Δ Macro AUROC</th>
+        <th>Δ Micro AUROC</th>
+        <th>Δ 학습시간 (초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>1. Random Forest</td><td class='num'>+0.1287</td><td class='num'>+0.1156</td><td class='num'>+0.0479</td><td class='num'>+0.0375</td><td class='num'>+1.8999</td></tr>
+<tr><td>2. LightGBM</td><td class='num'>+0.1351</td><td class='num'>+0.1178</td><td class='num'>+0.0478</td><td class='num'>+0.0374</td><td class='num'>+39.0929</td></tr>
+<tr><td>3. Logistic Regression</td><td class='num'>+0.1512</td><td class='num'>+0.1378</td><td class='num'>+0.0496</td><td class='num'>+0.0389</td><td class='num'>+0.0314</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4-2. 베이스라인 대비 평균 차이 (5회 평균 지표 기준)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th>Δ Macro F1</th>
+        <th>Δ Micro F1</th>
+        <th>Δ Macro AUROC</th>
+        <th>Δ Micro AUROC</th>
+        <th>Δ 학습시간 (초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>1. Random Forest</td><td class='num'>+0.1289</td><td class='num'>+0.1156</td><td class='num'>+0.0481</td><td class='num'>+0.0381</td><td class='num'>+1.5407</td></tr>
+<tr><td>2. LightGBM</td><td class='num'>+0.1367</td><td class='num'>+0.1196</td><td class='num'>+0.0482</td><td class='num'>+0.0382</td><td class='num'>+19.6883</td></tr>
+<tr><td>3. Logistic Regression</td><td class='num'>+0.1512</td><td class='num'>+0.1378</td><td class='num'>+0.0498</td><td class='num'>+0.0396</td><td class='num'>+0.0850</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>이전 실험 Decision Tree 참고값</strong><br/>
+    <code>customer_satisfaction_fe_benchmark_report.html</code> 실험 1 기준 Macro AUROC <strong>0.9499</strong>,
+    Macro F1 <strong>0.8227</strong>. 대표 실행(seed=42)의 Decision Tree 행과 비교하시면 됩니다.
+  </div>
+
+  <h2>5. 하이퍼파라미터·설정 (JSON)</h2>
+  <pre class="params">{
+  &quot;repeat_seeds&quot;: [
+    42,
+    1337,
+    7,
+    99,
+    31415
+  ],
+  &quot;n_repeats&quot;: 5,
+  &quot;reference_single_seed&quot;: 42,
+  &quot;feature_engineering&quot;: &quot;실험 1: 전체 특성 (중앙값 대치+StandardScaler, OneHotEncoder)&quot;,
+  &quot;n_features_after_preprocess&quot;: 67,
+  &quot;DecisionTree&quot;: {
+    &quot;max_depth&quot;: 8,
+    &quot;min_samples_leaf&quot;: 10,
+    &quot;min_samples_split&quot;: 20,
+    &quot;class_weight&quot;: &quot;balanced&quot;,
+    &quot;random_state&quot;: &quot;&lt;per run&gt;&quot;
+  },
+  &quot;RandomForest&quot;: {
+    &quot;n_estimators&quot;: 300,
+    &quot;max_depth&quot;: 16,
+    &quot;min_samples_leaf&quot;: 4,
+    &quot;class_weight&quot;: &quot;balanced_subsample&quot;,
+    &quot;n_jobs&quot;: -1,
+    &quot;random_state&quot;: &quot;&lt;per run&gt;&quot;
+  },
+  &quot;LightGBM&quot;: {
+    &quot;objective&quot;: &quot;multiclass&quot;,
+    &quot;num_class&quot;: 5,
+    &quot;n_estimators&quot;: 300,
+    &quot;learning_rate&quot;: 0.05,
+    &quot;max_depth&quot;: 6,
+    &quot;num_leaves&quot;: 31,
+    &quot;subsample&quot;: 0.9,
+    &quot;colsample_bytree&quot;: 0.9,
+    &quot;reg_lambda&quot;: 1.0,
+    &quot;reg_alpha&quot;: 0.0,
+    &quot;verbosity&quot;: -1,
+    &quot;force_col_wise&quot;: true,
+    &quot;random_state&quot;: &quot;&lt;per run&gt;&quot;
+  },
+  &quot;LogisticRegression&quot;: {
+    &quot;max_iter&quot;: 5000,
+    &quot;solver&quot;: &quot;lbfgs&quot;,
+    &quot;C&quot;: 1.0,
+    &quot;class_weight&quot;: &quot;balanced&quot;,
+    &quot;random_state&quot;: &quot;&lt;per run&gt;&quot;
+  },
+  &quot;friedman&quot;: &quot;지표별 Friedman 검정 — 동일 시드에서 4알고리즘 점수를 블록으로 취급&quot;,
+  &quot;wilcoxon&quot;: &quot;베이스라인 대비 쌍체 Wilcoxon, Bonferroni 보정 계수=15 (3알고리즘×5지표)&quot;
+}</pre>
+</body>
+</html>

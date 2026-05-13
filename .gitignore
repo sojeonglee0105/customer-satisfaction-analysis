@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments (프로젝트 루트에 두는 경우)
+lg_vibe/
+.venv/
+venv/
+ENV/
+
+# 도구 / IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# 선택: 생성물이 커지면 아래 주석 해제
+# outputs/

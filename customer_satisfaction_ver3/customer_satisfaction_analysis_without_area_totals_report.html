@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>RPI 예측 — 영역별 total 제외 특성 분석</title>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 24px 32px 48px; color: #111; max-width: 960px; line-height: 1.55; }
+    h1 { font-size: 1.35rem; border-bottom: 2px solid #0369a1; padding-bottom: 8px; }
+    h2 { font-size: 1.05rem; color: #0c4a6e; margin-top: 24px; }
+    p.meta { color: #555; font-size: 0.9rem; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.88rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
+    th { background: #e0f2fe; text-align: left; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .note { background: #f8fafc; border-left: 4px solid #64748b; padding: 12px 16px; margin: 14px 0; }
+    .best { background: #ecfdf5; font-weight: 600; }
+    pre.params { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; font-size: 0.76rem; overflow-x: auto; }
+    ul.compact { margin: 0.4rem 0; padding-left: 1.2rem; }
+    ul.compact li { margin: 0.2rem 0; }
+  </style>
+</head>
+<body>
+  <h1>RPI 예측 — 평가 영역별 <code>csi_total</code> / <code>cci_total</code> 제외 분석</h1>
+  <p class="meta">
+    학습: <code>data\customer_satisfaction_ver3\customer_satisfaction_train.csv</code><br/>
+    평가: <code>data\customer_satisfaction_ver3\customer_satisfaction_test.csv</code><br/>
+    타깃: <strong>rpi</strong> · <code>random_state=42</code><br/>
+    생성: 2026-05-13 16:03
+  </p>
+
+  <div class="note">
+    <strong>결론 (Macro AUROC 1순위, 동률 시 Macro F1)</strong><br/>
+    본 설정에서 가장 높은 성능은
+    <strong>Ordinal Logistic (mord.LogisticAT)</strong>입니다
+    (Macro AUROC <strong>0.9999</strong>,
+    Macro F1 <strong>0.9959</strong>).
+  </div>
+
+  <h2>1. 분석 조건</h2>
+  <p>독립변수에서 아래 <strong>12개</strong>만 제거하고, 그 외 CSI/CCI 세부 항목(res/core/comm) 및 범주형 변수는 그대로 사용했습니다.
+     전처리는 기존 벤치마크와 동일하게 수치(중앙값 대치+표준화)+범주(원-핫)입니다.</p>
+  <ul class="compact">
+<li><code>t1_csi_total</code></li><li><code>t1_cci_total</code></li><li><code>t2_csi_total</code></li><li><code>t2_cci_total</code></li><li><code>c_csi_total</code></li><li><code>c_cci_total</code></li><li><code>d_csi_total</code></li><li><code>d_cci_total</code></li><li><code>q1_csi_total</code></li><li><code>q1_cci_total</code></li><li><code>q2_csi_total</code></li><li><code>q2_cci_total</code></li>
+  </ul>
+  <p class="meta">원시 특성 수(타깃·제외 12개 제외): <strong>40</strong> ·
+     수치 <strong>36</strong> + 범주 <strong>4</strong> ·
+     전처리 후 밀집 차원: <strong>55</strong></p>
+
+  <h2>2. 알고리즘별 테스트 성능 (순위: Macro AUROC 내림차순)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>순위</th>
+        <th>알고리즘</th>
+        <th>Macro F1</th>
+        <th>Micro F1</th>
+        <th>Macro AUROC</th>
+        <th>Micro AUROC</th>
+        <th>학습시간(초)</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td class='num'>1</td><td>Ordinal Logistic (mord.LogisticAT)</td><td class='num'>0.9959</td><td class='num'>0.9956</td><td class='num'>0.9999</td><td class='num'>0.9999</td><td class='num'>0.1418</td></tr>
+<tr><td class='num'>2</td><td>Logistic Regression</td><td class='num'>0.9787</td><td class='num'>0.9800</td><td class='num'>0.9995</td><td class='num'>0.9996</td><td class='num'>0.1800</td></tr>
+<tr><td class='num'>3</td><td>LightGBM</td><td class='num'>0.9617</td><td class='num'>0.9644</td><td class='num'>0.9974</td><td class='num'>0.9979</td><td class='num'>18.2087</td></tr>
+<tr><td class='num'>4</td><td>Random Forest</td><td class='num'>0.9480</td><td class='num'>0.9556</td><td class='num'>0.9966</td><td class='num'>0.9974</td><td class='num'>2.3238</td></tr>
+<tr><td class='num'>5</td><td>Decision Tree</td><td class='num'>0.7477</td><td class='num'>0.7667</td><td class='num'>0.9273</td><td class='num'>0.9371</td><td class='num'>0.0607</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. 해석 메모</h2>
+  <ul class="compact">
+    <li>제외한 12개는 영역별 <strong>종합 점수</strong>이지만, 동일 영역의 <code>res</code>/<code>core</code>/<code>comm</code> 점수가 남아 있어
+        RPI와의 정보가 상당 부분 <strong>중복·재구성 가능</strong>합니다. 그래서 본 데이터에서는 절대 성능이 크게 무너지지 않고,
+        <strong>Ordinal → Logistic Regression → LightGBM</strong> 순의 상대 우위가 유지되는 패턴입니다.</li>
+    <li>순위는 단일 홀드아웃·<code>random_state=42</code> 기준이므로, 운영 전 시드 반복·교차검증을 권장합니다.</li>
+    <li>Decision Tree만 AUROC·F1이 유의하게 낮아, 요약 신호 없이 고차원·다중공선 구조에서 <strong>얕은 트리</strong>의 한계가 드러난 것으로 볼 수 있습니다.</li>
+  </ul>
+
+  <h2>4. 설정 (JSON)</h2>
+  <pre class="params">{
+  &quot;excluded_columns&quot;: [
+    &quot;t1_csi_total&quot;,
+    &quot;t1_cci_total&quot;,
+    &quot;t2_csi_total&quot;,
+    &quot;t2_cci_total&quot;,
+    &quot;c_csi_total&quot;,
+    &quot;c_cci_total&quot;,
+    &quot;d_csi_total&quot;,
+    &quot;d_cci_total&quot;,
+    &quot;q1_csi_total&quot;,
+    &quot;q1_cci_total&quot;,
+    &quot;q2_csi_total&quot;,
+    &quot;q2_cci_total&quot;
+  ],
+  &quot;n_raw_features&quot;: 40,
+  &quot;n_numeric&quot;: 36,
+  &quot;n_cat&quot;: 4,
+  &quot;n_dense_after_preprocess&quot;: 55,
+  &quot;random_state&quot;: 42,
+  &quot;models&quot;: {
+    &quot;DecisionTree&quot;: {
+      &quot;max_depth&quot;: 8,
+      &quot;min_samples_leaf&quot;: 10,
+      &quot;min_samples_split&quot;: 20,
+      &quot;class_weight&quot;: &quot;balanced&quot;
+    },
+    &quot;RandomForest&quot;: {
+      &quot;n_estimators&quot;: 300,
+      &quot;max_depth&quot;: 16,
+      &quot;min_samples_leaf&quot;: 4,
+      &quot;class_weight&quot;: &quot;balanced_subsample&quot;,
+      &quot;n_jobs&quot;: -1
+    },
+    &quot;LightGBM&quot;: {
+      &quot;objective&quot;: &quot;multiclass&quot;,
+      &quot;num_class&quot;: 5,
+      &quot;n_estimators&quot;: 300,
+      &quot;learning_rate&quot;: 0.05,
+      &quot;max_depth&quot;: 6,
+      &quot;num_leaves&quot;: 31,
+      &quot;subsample&quot;: 0.9,
+      &quot;colsample_bytree&quot;: 0.9,
+      &quot;reg_lambda&quot;: 1.0,
+      &quot;reg_alpha&quot;: 0.0,
+      &quot;verbosity&quot;: -1,
+      &quot;force_col_wise&quot;: true
+    },
+    &quot;LogisticRegression&quot;: {
+      &quot;max_iter&quot;: 5000,
+      &quot;solver&quot;: &quot;lbfgs&quot;,
+      &quot;C&quot;: 1.0,
+      &quot;class_weight&quot;: &quot;balanced&quot;
+    },
+    &quot;Ordinal_LogisticAT&quot;: {
+      &quot;alpha&quot;: 1.0
+    }
+  }
+}</pre>
+</body>
+</html>

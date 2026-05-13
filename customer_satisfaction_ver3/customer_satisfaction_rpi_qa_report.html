@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>RPI 분석 Q&amp;A 리포트</title>
+  <style>
+    body { font-family: "Malgun Gothic", "Segoe UI", system-ui, sans-serif; margin: 24px 32px 48px; color: #111; max-width: 900px; line-height: 1.6; }
+    h1 { font-size: 1.45rem; border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 8px; }
+    p.sub { color: #555; font-size: 0.92rem; margin-top: 0; }
+    h2 { font-size: 1.12rem; color: #1e3a8a; margin-top: 2rem; }
+    h3 { font-size: 1rem; color: #334155; margin-top: 1.25rem; }
+    .q { background: #eff6ff; border-left: 4px solid #2563eb; padding: 14px 16px; margin: 1.25rem 0 0.75rem; font-weight: 600; color: #1e3a8a; }
+    .a { margin: 0 0 1rem 0; }
+    .note { background: #f8fafc; border-left: 4px solid #64748b; padding: 12px 16px; margin: 14px 0; font-size: 0.92rem; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.88rem; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+    th { background: #eff6ff; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    ul { margin: 0.4rem 0 0.8rem; padding-left: 1.35rem; }
+    li { margin: 0.35rem 0; }
+    code { font-size: 0.86em; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; }
+    footer { margin-top: 2.5rem; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>RPI 분석 Q&amp;A 리포트</h1>
+  <p class="sub">
+    본 문서는 고객만족 ver3 분석 맥락(<code>csi_total</code> / <code>cci_total</code> 12개 제외,
+    <code>customer_satisfaction_feature_importance_eda_report.html</code>,
+    <code>customer_satisfaction_algorithm_comparison_report.html</code> 등)을 바탕으로 한 Q&amp;A입니다.
+    <strong>Q4</strong> 방향 해석은 별도 산출물
+    <a href="customer_satisfaction_shap_direction_report.html"><code>customer_satisfaction_shap_direction_report.html</code></a>
+    (재생성: <code>run_rpi_shap_direction_report.py</code>)과 함께 보시면 됩니다.
+  </p>
+
+  <h2>목차</h2>
+  <ul>
+    <li><a href="#q1">Q1. RPI 영향 요인과 % 수준</a></li>
+    <li><a href="#q2">Q2. 입력값이 주어질 때 RPI 예측 가능 여부</a></li>
+    <li><a href="#q3">Q3. ML 기반 비즈니스 인사이트</a></li>
+    <li><a href="#q4">Q4. 요인이 RPI에 긍정인지 부정인지 어떻게 아는가</a></li>
+  </ul>
+
+  <h2 id="q1">Q1</h2>
+  <div class="q">
+    <code>csi_total</code>, <code>cci_total</code> 변수를 제외했을 때, RPI에 영향을 미치는 요인은 무엇이며,
+    각 요인이 RPI에 미치는 영향 수준을 %로 말할 수 있는가?
+  </div>
+  <div class="a">
+    <h3>영향 요인(요약)</h3>
+    <p>
+      퍼뮤테이션 중요도·모델 간 합의 기준으로 보면, total이 아닌 <strong>영역별 CSI/CCI의 세부 축</strong>
+      (<code>res</code>, <code>core</code>, <code>comm</code>)와 메타 변수
+      (<strong>연도·지역·제품·클라이언트</strong>)가 함께 상위에 올라옵니다.
+    </p>
+    <ul>
+      <li><strong>CCI</strong>: <code>t1_cci_res</code>, <code>c_cci_res</code>, <code>t1_cci_core</code> 등이 상위권이며,
+        <code>q1_cci_res</code>, <code>t2_cci_core</code>, <code>c_cci_core</code> 등 지역(t1, c, q1, t2, d) × CCI 조합이 넓게 분포합니다.</li>
+      <li><strong>CSI</strong>: <code>q2_csi_comm</code>, <code>q1_csi_comm</code>, <code>t1_csi_core</code> 등 comm·core·res가 함께 등장합니다.</li>
+      <li><strong>범주 특성</strong>: Friedman 상위 구간에 <code>cat__client_*</code>, <code>cat__product_*</code> 등이 포함되어
+        고객군·품목에 따른 패턴 차이 신호가 있습니다.</li>
+    </ul>
+
+    <h3>“%”의 의미(주의)</h3>
+    <div class="note">
+      리포트의 퍼뮤테이션 중요도는 특성을 섞었을 때 <strong>macro OvR AUROC 하락폭</strong>에 가깝고,
+      <strong>RPI 등급 값 자체가 몇 % 변한다</strong>는 뜻과는 직접 대응하지 않습니다.
+      EDA 표의 <strong>합의 점수</strong>는 세 모델 기준으로 맞춘 <strong>상대적 중요도 척도</strong>입니다.
+    </div>
+    <p>
+      다만, 특성 중요도 EDA에서 <strong>수치형 원시열로 매핑된 상위 25개</strong>의 합의 점수만 합산했을 때
+      각 변수가 차지하는 <strong>상대 비중</strong>(같은 25개 안에서의 몫)은 아래와 같이 정리할 수 있습니다.
+      (합의 점수 합 ≈ <strong>0.733</strong>; 범주형 상위 특성은 이 표에 포함되지 않습니다.)
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>원시 변수</th>
+          <th class="num">합의 점수 기준 상대 비중<br/>(25개 합 대비)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>t1_cci_res</td><td class="num">약 11.1%</td></tr>
+        <tr><td>c_cci_res</td><td class="num">약 10.8%</td></tr>
+        <tr><td>t1_cci_core</td><td class="num">약 10.6%</td></tr>
+        <tr><td>q1_cci_res</td><td class="num">약 5.9%</td></tr>
+        <tr><td>t2_cci_core</td><td class="num">약 4.9%</td></tr>
+        <tr><td>그 외 c / q / t / d의 csi·cci (res, core, comm)</td><td class="num">각 약 1.2% ~ 4.7%</td></tr>
+      </tbody>
+    </table>
+    <p>
+      위 %는 <strong>“상위 EDA에 올라온 수치형 25개 변수 집합 안에서의 비중”</strong>이며,
+      전체 설명변수·범주형까지 포함한 절대적 “기여율 100%” 분해와는 다릅니다.
+    </p>
+  </div>
+
+  <h2 id="q2">Q2</h2>
+  <div class="q">
+    1번을 기준으로, 영향 요인 값이 입력되었을 때 RPI가 어느 정도가 될지 답할 수 있는지.
+    독립 변수 값 예시를 들어 답변해 달라.
+  </div>
+  <div class="a">
+    <h3>답할 수 있는 수준</h3>
+    <p>
+      타깃은 <strong>RPI 등급 1~5</strong>(학습 시 0~4 인코딩)이고, 알고리즘 비교 리포트의 동일 train/test 분할에서
+      <strong>Macro F1 약 0.97 전후</strong>, <strong>Macro AUROC 약 0.997~0.999</strong> 수준입니다.
+      따라서 <strong>“가장 그럴듯한 등급”</strong>과 함께 <strong>등급별 확률</strong>을 제시하는 형태로 답하는 것은,
+      같은 데이터 분포·같은 전처리 전제 하에서는 실무적으로 타당합니다.
+    </p>
+
+    <h3>“몇 % 오른다” 식의 한계</h3>
+    <p>
+      현재 파이프라인은 <strong>등급 분류(다중 클래스)</strong>이지 RPI를 연속 점수로 회귀하는 설정이 아닙니다.
+      따라서 <strong>“특정 변수를 1 올리면 RPI가 3% 오른다”</strong> 같은 선형 % 효과는 이 ML 결과만으로는 근거를 두기 어렵습니다.
+      (필요 시 순서형 회귀, SHAP, 부분의존 등으로 방향·크기를 보완할 수 있습니다.)
+    </p>
+
+    <h3>독립 변수 예시(가상 시나리오)</h3>
+    <p>학습 데이터와 비슷한 스케일로 가정한 예시입니다. 실제 확률은 학습된 파이프라인에 입력 후 <code>predict_proba</code>로 산출해야 합니다.</p>
+    <ul>
+      <li><code>year</code>=2024, <code>area</code>=d, <code>product</code>=자동차, <code>client</code>=d</li>
+      <li><code>t1_cci_res</code> ≈ -1.8, <code>t1_cci_core</code> ≈ 0.3, <code>t1_csi_core</code> ≈ 7.2, <code>c_cci_res</code> ≈ 0.3</li>
+      <li>나머지 영역의 csi/cci res·core·comm은 중간대로 둔 경우</li>
+    </ul>
+    <div class="note">
+      이와 같은 입력에 대해 모델은 보통 <strong>등급 3에 대한 확률이 가장 크다</strong> 등의 형태로 출력할 수 있습니다.
+      운영에서는 <strong>“예상 등급 4 (신뢰 0.62), 차선 3 (0.21)”</strong>처럼 <strong>등급 + 확률</strong>을 함께 제시하는 것을 권장합니다.
+    </div>
+  </div>
+
+  <h2 id="q3">Q3</h2>
+  <div class="q">
+    위 ML 모델링을 통해 비즈니스 측면에서 얻을 수 있는 인사이트가 있는지. 예시를 포함해 답변해 달라.
+  </div>
+  <div class="a">
+    <ul>
+      <li>
+        <strong>축 단위 액션</strong>: total이 아니라 <strong>res / core / comm</strong>이 상위에 있으므로,
+        “총점만 올리기”보다 <strong>응답성·핵심가치·소통</strong> 등 세부 축 중 어디를 개선할지 우선순위를 나눌 수 있습니다.
+        (예: T1·C에서 CCI 응답·핵심이 두드러지면, 해당 축의 VOC·서비스 터치포인트를 먼저 점검.)
+      </li>
+      <li>
+        <strong>세그먼트</strong>: <code>client</code>, <code>product</code>가 상위에 섞이면
+        <strong>동일한 점수 패턴도 고객군·품목에 따라 RPI로 이어지는 경로가 다를 수 있다</strong>는 가설을 세울 수 있습니다.
+        (예: 스마트폰 vs 모니터에서 개선 우선 축을 다르게 두는 제품군별 플랜.)
+      </li>
+      <li>
+        <strong>CSI vs CCI 균형</strong>: 합의 상위에 CCI 축이 강하게 보이는 구간이 있으면,
+        CSI 캠페인만 강화하기보다 <strong>경쟁력(특히 res/core) 체감</strong>을 함께 보는 전략을 검토할 근거가 됩니다. (인과 단정은 아님.)
+      </li>
+      <li>
+        <strong>모델 간 일치</strong>: 여러 모델이 비슷한 순위를 보이면 “한 알고리즘의 특이값”이 아니라
+        <strong>공통으로 드러나는 축</strong>을 경영 KPI와 연결하기 좋습니다.
+      </li>
+      <li>
+        <strong>성능이 매우 높을 때</strong>: 극단적으로 높은 AUROC/F1은 <strong>누수·파생 규칙과의 중복·분포 내 쉬운 분리</strong> 가능성도 있으므로,
+        연도·지역 밖 일반화 등 <strong>추가 검증</strong>을 비즈니스 리스크 관리 차원에서 권장합니다.
+      </li>
+    </ul>
+  </div>
+
+  <h2 id="q4">Q4</h2>
+  <div class="q">
+    RPI에 영향을 미치는 요인을 추출했는데, 그 요인이 RPI에 <strong>긍정적</strong>일 수도 <strong>부정적</strong>일 수도 있다면 그 방향은 어떻게 아는가?
+  </div>
+  <div class="a">
+    <h3>퍼뮤테이션·합의 중요도만으로는 방향을 알 수 없음</h3>
+    <p>
+      퍼뮤테이션 중요도는 특성을 망가뜨렸을 때 <strong>예측 품질(AUROC 등)이 얼마나 나빠지는지</strong>를 봅니다.
+      합의 점수는 모델들이 비슷하게 <strong>의존하는 정도</strong>입니다. 둘 다 <strong>“얼마나 쓰이나”</strong>에 가깝고,
+      변수 값이 커질수록 RPI가 올라가는지·내려가는지 같은 <strong>부호(긍·부정)</strong>는 주지 않습니다.
+    </p>
+    <h3>방향을 보려면: SHAP·PDP 등 “값 변화 → 예측 변화”</h3>
+    <p>
+      본 프로젝트에서는 ver3와 동일한 전처리·<strong>LightGBM 다중 클래스</strong>에 대해
+      <strong>SHAP(TreeExplainer)</strong>를 계산해,
+      <strong>가장 높은 RPI 등급(등급 5) 클래스의 raw margin(로짓)</strong>에 대한
+      <strong>평균 SHAP 부호</strong>로 “평균적으로 그 로짓을 올리는지·내리는지”를 요약했습니다.
+    </p>
+    <ul>
+      <li><strong>양수 평균 SHAP</strong>: 테스트 표본에서, 해당 특성이 <strong>등급 5 로짓을 평균적으로 올리는 쪽</strong>으로 기여하는 패턴이 많다는 뜻(개별 행에서는 반대일 수 있음).</li>
+      <li><strong>음수 평균 SHAP</strong>: 그 반대로 <strong>등급 5 로짓을 내리는 쪽</strong> 기여가 평균적으로 우세.</li>
+      <li><strong>범주형(<code>cat__</code>)</strong>: 원-핫이므로 <strong>기준 범주 대비</strong> 효과입니다. 원시 값 “크다/작다”와 바로 대응하지 않습니다.</li>
+      <li><strong>주의</strong>: SHAP은 <strong>이 모델·이 데이터 분포</strong> 안의 해석이며 인과는 아닙니다. 다중 클래스·트리 조합에서는 라이브러리 가법성 검사를 완화해 계산했으므로, <strong>순위·방향성 참고</strong>로 쓰는 것이 안전합니다.</li>
+    </ul>
+    <p>
+      막대·표·상위 특성 목록은 다음 파일에서 확인할 수 있습니다.<br/>
+      <a href="customer_satisfaction_shap_direction_report.html"><strong>customer_satisfaction_shap_direction_report.html</strong></a>
+    </p>
+  </div>
+
+  <h2>한 줄 요약</h2>
+  <div class="note">
+    <strong>요인</strong>: total을 제외해도 지역×CSI/CCI의 res·core·comm과 연도·지역·제품·클라이언트가 핵심 신호입니다.<br/>
+    <strong>%</strong>: 리포트 합의 점수로는 “상위 수치형 일부 안에서의 상대 비중”은 제시 가능하나,
+    “RPI 값의 몇 % 변화”는 별도 해석 도구가 필요합니다.<br/>
+    <strong>예측</strong>: 등급(1~5) 및 등급별 확률로 답하는 것이 적합하며, 구체 수치는 저장된 학습 파이프라인으로 산출합니다.<br/>
+    <strong>긍·부정(방향)</strong>: 퍼뮤테이션만으로는 불가. SHAP 등으로 “등급별 로짓/확률을 어느 쪽으로 밀나”를 따로 봅니다
+    (<a href="customer_satisfaction_shap_direction_report.html">SHAP 방향 리포트</a>).
+  </div>
+
+  <footer>
+    문서 유형: Q&amp;A 요약 리포트 · 경로:
+    <code>customer_satisfaction_ver3/customer_satisfaction_rpi_qa_report.html</code><br/>
+    연관: <code>customer_satisfaction_ver3/customer_satisfaction_shap_direction_report.html</code>
+  </footer>
+</body>
+</html>
