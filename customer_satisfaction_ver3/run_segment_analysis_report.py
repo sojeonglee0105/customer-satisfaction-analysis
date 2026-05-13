@@ -1,6 +1,6 @@
 """
 고객 세그먼트별(client / product / area) RPI 분포·핵심 특성 평균·인사이트 HTML 리포트 생성.
-total 12개 제외 기준. 시각화 + 표 포함.
+area = 평가 영역(t1·t2·c·d·q1·q2), total 12개 제외 기준. 시각화 + 표 포함.
 """
 from __future__ import annotations
 import base64, html, io, platform, warnings
@@ -151,7 +151,7 @@ def main():
 
     # 시각화
     plots = {}
-    for seg_col, seg_label in [("client","고객(client)"),("product","제품(product)"),("area","지역(area)")]:
+    for seg_col, seg_label in [("client","고객(client)"),("product","제품(product)"),("area","평가영역(area)")]:
         plots[seg_col] = {
             "stacked": stacked_bar_rpi(df, seg_col, seg_label),
             "box":     boxplot_rpi(df, seg_col, seg_label),
@@ -196,25 +196,27 @@ def main():
 
     insight_area = """
       <ul>
-        <li>6개 지역 Kruskal-Wallis H={Ha:.3f}, p={pa:.4f} → 통계적으로 유의미하지 않음.</li>
-        <li><strong>q1 지역</strong>: RPI 평균 <strong>2.389</strong>으로 최고, 저등급(1) 비율 <strong>27.9%</strong>로 최저.
+        <li><strong>area = 평가 영역</strong>: t1·t2·c·d·q1·q2는 지리적 지역이 아닌 고객 설문의 <strong>평가 축(도메인)</strong>입니다.
+            각 영역 컬럼(t1_cci_res 등)의 앞 접두어와 동일하며, 해당 고객이 어떤 도메인 기준으로 평가했는지를 나타냅니다.</li>
+        <li>6개 평가영역 Kruskal-Wallis H={Ha:.3f}, p={pa:.4f} → 통계적으로 유의미하지 않음.</li>
+        <li><strong>q1 영역</strong>: RPI 평균 <strong>2.389</strong>으로 최고, 저등급(1) 비율 <strong>27.9%</strong>로 최저.
             전반적으로 가장 우호적인 RPI 분포를 보입니다.</li>
-        <li><strong>c 지역</strong>: 저등급(1) 비율 <strong>38.9%</strong>로 최고, RPI 평균 2.187로 최저.
-            t1_cci_res·q1_cci_res 등 CCI 지표도 t2 다음으로 높아, 지역 특성상 기대 수준이 높거나
-            경험 품질에 특이 요인이 있을 수 있습니다.</li>
-        <li><strong>t2 지역</strong>: 저등급(1) 38.2%로 c 다음으로 높고, CCI 핵심 지표(t1_cci_res=1.189)가
-            전 지역 최고 수준임에도 RPI가 낮은 <strong>노트북과 유사한 기대-성과 갭</strong> 패턴.</li>
-        <li><strong>t1 지역</strong>: 고등급(4-5) 비율 <strong>22.8%</strong>로 최고. CCI 지표는 중간이지만
-            상위 등급 진입률이 높습니다.</li>
-        <li><strong>액션 포인트</strong>: <em>c·t2 지역</em> — 저등급 집중 원인 심층 조사.
-            <em>q1·t1 지역</em> — 성공 요인 분석 후 타 지역 적용 검토.</li>
+        <li><strong>c 영역</strong>: 저등급(1) 비율 <strong>38.9%</strong>로 최고, RPI 평균 2.187로 최저.
+            c_cci_res 등 해당 영역의 CCI 지표가 낮지 않음에도 RPI가 낮아, 이 평가 축에서의
+            경험 품질에 개선 여지가 있음을 시사합니다.</li>
+        <li><strong>t2 영역</strong>: 저등급(1) 38.2%로 c 다음으로 높고, t2_cci_core 등 핵심 지표 수준이
+            상대적으로 높음에도 RPI가 낮은 <strong>기대-성과 갭</strong> 패턴.</li>
+        <li><strong>t1 영역</strong>: 고등급(4-5) 비율 <strong>22.8%</strong>로 최고. t1 영역 CCI 점수는
+            중간 수준이지만 상위 등급 진입률이 높습니다.</li>
+        <li><strong>액션 포인트</strong>: <em>c·t2 평가영역</em> — 해당 도메인 접점의 경험 품질 집중 점검.
+            <em>q1·t1 평가영역</em> — 긍정 경험 구성 요소 분석 후 타 영역 적용 검토.</li>
       </ul>
     """.format(Ha=kw["area"][0], pa=kw["area"][1])
 
     seg_configs = [
         ("client","고객(Client)","고객군별 분석",insight_client,"client"),
         ("product","제품(Product)","제품군별 분석",insight_product,"product"),
-        ("area","지역(Area)","지역별 분석",insight_area,"area"),
+        ("area","평가영역(Area)","평가 영역별 분석",insight_area,"area"),
     ]
 
     sections = []
@@ -275,7 +277,7 @@ def main():
   <h1>RPI 세그먼트별 분석 리포트</h1>
   <p class="meta">
     데이터: train+test 전체 <strong>1,500행</strong> · <code>csi_total/cci_total</code> 12개 제외 기준<br/>
-    세그먼트: <strong>고객(client 5개)</strong> / <strong>제품(product 5개)</strong> / <strong>지역(area 6개)</strong><br/>
+    세그먼트: <strong>고객(client 5개)</strong> / <strong>제품(product 5개)</strong> / <strong>평가영역(area 6개: t1·t2·c·d·q1·q2)</strong><br/>
     생성(UTC): {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")}
   </p>
 
@@ -283,7 +285,7 @@ def main():
   <ul>
     <li><a href="#client">고객(Client)별 분석</a></li>
     <li><a href="#product">제품(Product)별 분석</a></li>
-    <li><a href="#area">지역(Area)별 분석</a></li>
+    <li><a href="#area">평가 영역(Area)별 분석</a></li>
     <li><a href="#summary">종합 인사이트</a></li>
   </ul>
 
@@ -294,11 +296,13 @@ def main():
     <ul>
       <li><strong>세그먼트 간 통계적 차이</strong>: client·product·area 모두 Kruskal-Wallis p &gt; 0.05로
           <strong>전체 분포 차이가 통계적으로 유의하지 않습니다</strong>. 전체 RPI 분포 자체가 저등급 1 집중(35%) 패턴이기 때문입니다.</li>
-      <li><strong>저등급(1) 리스크가 높은 세그먼트</strong>: <code>client a</code>(38.6%), <code>area c</code>(38.9%), <code>area t2</code>(38.2%), <code>product 모니터</code>(37.7%) → 이 세그먼트에 우선적으로 개선 자원을 배분할 필요가 있습니다.</li>
-      <li><strong>고등급(4-5) 비율이 높은 세그먼트</strong>: <code>client c</code>(22.1%), <code>area t1</code>(22.8%), <code>product 자동차</code>(22.0%) → 이들 세그먼트의 성공 패턴을 분석해 다른 세그먼트에 적용하는 것이 효과적입니다.</li>
-      <li><strong>CCI 높으나 RPI 낮은 역설 세그먼트</strong>: <code>product 노트북</code>(CCI 지표 최고 수준, RPI 평균 최저), <code>area t2</code>(CCI 상위권, 저등급 비율 높음) → 높은 경쟁력 인식이 RPI로 이어지지 않는 <strong>기대-성과 갭</strong>이 존재할 가능성. 해당 세그먼트 심층 VOC 분석 권고.</li>
-      <li><strong>모델 관점</strong>: 세그먼트 자체(client·product)가 Friedman 상위 특성에 포함되므로, 동일 CSI/CCI 점수라도 세그먼트 맥락에 따라 RPI 예측 확률이 달라집니다. 세그먼트별 개별 모델 또는 세그먼트를 interaction term으로 추가한 모델이 실무 정밀도를 높일 수 있습니다.</li>
-      <li><strong>다음 분석 과제</strong>: 세그먼트 × 연도 교차 추이, 세그먼트 내부 퍼뮤테이션 중요도 비교, 세그먼트별 SHAP 분포 비교.</li>
+      <li><strong>저등급(1) 리스크가 높은 세그먼트</strong>: <code>client a</code>(38.6%), <code>평가영역 c</code>(38.9%), <code>평가영역 t2</code>(38.2%), <code>product 모니터</code>(37.7%) → 이 세그먼트에 우선적으로 개선 자원을 배분할 필요가 있습니다.</li>
+        <li><strong>고등급(4-5) 비율이 높은 세그먼트</strong>: <code>client c</code>(22.1%), <code>평가영역 t1</code>(22.8%), <code>product 자동차</code>(22.0%) → 이들 세그먼트의 성공 패턴을 분석해 다른 세그먼트에 적용하는 것이 효과적입니다.</li>
+        <li><strong>CCI 높으나 RPI 낮은 역설 세그먼트</strong>: <code>product 노트북</code>(CCI 지표 최고 수준, RPI 평균 최저), <code>평가영역 t2</code>(CCI 상위권, 저등급 비율 높음) → 높은 경쟁력 인식이 RPI로 이어지지 않는 <strong>기대-성과 갭</strong>이 존재할 가능성. 해당 세그먼트 심층 VOC 분석 권고.</li>
+        <li><strong>area는 평가 영역(도메인)</strong>: t1·t2·c·d·q1·q2는 지리적 지역이 아닌 고객 경험 평가의 축(도메인)입니다.
+            각 특성 컬럼 접두어(예: t1_cci_res)와 동일하며, 이 영역별 CCI/CSI 점수가 RPI 예측에 어떻게 기여하는지가 핵심 분석 포인트입니다.</li>
+        <li><strong>모델 관점</strong>: 세그먼트 자체(client·product)가 Friedman 상위 특성에 포함되므로, 동일 CSI/CCI 점수라도 세그먼트 맥락에 따라 RPI 예측 확률이 달라집니다. 세그먼트별 개별 모델 또는 세그먼트를 interaction term으로 추가한 모델이 실무 정밀도를 높일 수 있습니다.</li>
+        <li><strong>다음 분석 과제</strong>: 세그먼트 × 연도 교차 추이, 세그먼트 내부 퍼뮤테이션 중요도 비교, 세그먼트별 SHAP 분포 비교.</li>
     </ul>
   </div>
 
