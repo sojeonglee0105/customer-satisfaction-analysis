@@ -197,18 +197,19 @@ def main():
     insight_area = """
       <ul>
         <li><strong>area = 평가 영역</strong>: t1·t2·c·d·q1·q2는 지리적 지역이 아닌 고객 설문의 <strong>평가 축(도메인)</strong>입니다.
-            각 영역 컬럼(t1_cci_res 등)의 앞 접두어와 동일하며, 해당 고객이 어떤 도메인 기준으로 평가했는지를 나타냅니다.</li>
+            각 영역 컬럼(t1_cci_res 등)의 앞 접두어와 동일하며, 해당 고객이 어떤 도메인 기준으로 평가했는지를 나타냅니다.
+            현재 확인된 영역 의미: <code>c</code> = Cost(비용). 나머지(t1·t2·d·q1·q2) 코드 의미는 추후 확인 필요.</li>
         <li>6개 평가영역 Kruskal-Wallis H={Ha:.3f}, p={pa:.4f} → 통계적으로 유의미하지 않음.</li>
         <li><strong>q1 영역</strong>: RPI 평균 <strong>2.389</strong>으로 최고, 저등급(1) 비율 <strong>27.9%</strong>로 최저.
             전반적으로 가장 우호적인 RPI 분포를 보입니다.</li>
-        <li><strong>c 영역</strong>: 저등급(1) 비율 <strong>38.9%</strong>로 최고, RPI 평균 2.187로 최저.
-            c_cci_res 등 해당 영역의 CCI 지표가 낮지 않음에도 RPI가 낮아, 이 평가 축에서의
-            경험 품질에 개선 여지가 있음을 시사합니다.</li>
+        <li><strong>c(Cost·비용) 영역</strong>: 저등급(1) 비율 <strong>38.9%</strong>로 최고, RPI 평균 2.187로 최저.
+            c_cci_res 등 비용 영역의 CCI 지표가 낮지 않음에도 RPI가 낮아, 가격·비용 측면 경험 품질에
+            개선 여지가 있음을 시사합니다.</li>
         <li><strong>t2 영역</strong>: 저등급(1) 38.2%로 c 다음으로 높고, t2_cci_core 등 핵심 지표 수준이
             상대적으로 높음에도 RPI가 낮은 <strong>기대-성과 갭</strong> 패턴.</li>
         <li><strong>t1 영역</strong>: 고등급(4-5) 비율 <strong>22.8%</strong>로 최고. t1 영역 CCI 점수는
             중간 수준이지만 상위 등급 진입률이 높습니다.</li>
-        <li><strong>액션 포인트</strong>: <em>c·t2 평가영역</em> — 해당 도메인 접점의 경험 품질 집중 점검.
+        <li><strong>액션 포인트</strong>: <em>c(Cost)·t2 평가영역</em> — 비용/가격 접점 및 t2 도메인 경험 품질 집중 점검.
             <em>q1·t1 평가영역</em> — 긍정 경험 구성 요소 분석 후 타 영역 적용 검토.</li>
       </ul>
     """.format(Ha=kw["area"][0], pa=kw["area"][1])
@@ -277,7 +278,7 @@ def main():
   <h1>RPI 세그먼트별 분석 리포트</h1>
   <p class="meta">
     데이터: train+test 전체 <strong>1,500행</strong> · <code>csi_total/cci_total</code> 12개 제외 기준<br/>
-    세그먼트: <strong>고객(client 5개)</strong> / <strong>제품(product 5개)</strong> / <strong>평가영역(area 6개: t1·t2·c·d·q1·q2)</strong><br/>
+    세그먼트: <strong>고객(client 5개)</strong> / <strong>제품(product 5개)</strong> / <strong>평가영역(area 6개: t1·t2·c(cost)·d·q1·q2)</strong><br/>
     생성(UTC): {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")}
   </p>
 
