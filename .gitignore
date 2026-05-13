@@ -13,11 +13,16 @@ lg_vibe/
 venv/
 ENV/
 
+# Secrets / local
+.env
+
 # 도구 / IDE
 .idea/
 .vscode/
 *.swp
 .DS_Store
+
+*.tmp
 
 # 선택: 생성물이 커지면 아래 주석 해제
 # outputs/

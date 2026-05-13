@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>고객 만족도 EDA 종합 보고서</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --card: #fff;
+      --text: #1a1a1a;
+      --muted: #555;
+      --accent: #1565c0;
+      --border: #e0e0e0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 1.5rem 1rem 3rem;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.6;
+      max-width: 56rem; margin-left: auto; margin-right: auto;
+    }
+    h1 { font-size: 1.65rem; margin-bottom: 0.5rem; color: #0d47a1; }
+    h2 { font-size: 1.2rem; margin-top: 2rem; padding-bottom: 0.35rem; border-bottom: 2px solid var(--accent); }
+    h3 { font-size: 1.05rem; margin-top: 1.25rem; }
+    .meta { background: var(--card); padding: 1rem 1.25rem; border-radius: 8px; border: 1px solid var(--border); margin: 1rem 0; }
+    .meta ul { margin: 0.35rem 0; padding-left: 1.2rem; }
+    blockquote {
+      margin: 1rem 0; padding: 0.75rem 1rem; background: #e3f2fd; border-left: 4px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+    }
+    pre.mono {
+      overflow: auto; padding: 1rem; background: #263238; color: #eceff1;
+      border-radius: 8px; font-size: 0.78rem; line-height: 1.45;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+    .plots { display: grid; gap: 1.5rem; margin-top: 1rem; }
+    figure.plot {
+      margin: 0; padding: 1rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    }
+    figure.plot figcaption { font-weight: 600; margin-bottom: 0.75rem; color: var(--muted); font-size: 0.9rem; }
+    figure.plot img { width: 100%; height: auto; display: block; border-radius: 4px; }
+    .path { font-size: 0.85rem; color: var(--muted); word-break: break-all; }
+    code { font-family: Consolas, "Malgun Gothic", monospace; font-size: 0.9em; background: #eee; padding: 0.1em 0.35em; border-radius: 3px; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>고객 만족도 EDA 종합 보고서</h1>
+  <div class="meta">
+    <p><strong>데이터 파일</strong><br><span class="path">C:\Users\USER\Desktop\lg_vibe_ml\customer_satisfaction_ver2\customer_satisfaction_full_columns.xlsx</span></p>
+    <ul>
+      <li><strong>시트</strong>: synthetic_data_full</li>
+      <li><strong>타겟 (Y_Class = RPI)</strong>: <code>rpi</code></li>
+      <li><strong>폰트 (그래프)</strong>: Malgun Gothic</li>
+    </ul>
+  </div>
+  <blockquote>
+    문서에서 <strong>Y_Class</strong>는 본 데이터의 <strong>rpi</strong> 컬럼(관계 지표 등급)을 의미합니다.
+    RPI는 <strong>1 = 관계 매우 우수</strong>, <strong>5 = 관계 매우 불량</strong>입니다.
+  </blockquote>
+
+  <h2>데이터 구조 (도메인 정의)</h2>
+  <ul>
+<li>**조사 년도**: 수치형</li>
+<li>**평가영역**(예: `area`): 범주형 — t1, t2, d, c, q1, q2</li>
+<li>**제품군**(예: `product`): 범주형 — 모니터, 노트북, TV, 스마트폰, 자동차 등</li>
+<li>**고객사명**(예: `client`): 범주형 — a ~ e</li>
+<li>**RPI / Y_Class**(열 이름 `rpi`): 범주형 — **1(관계 매우 우수) ~ 5(관계 매우 불량)**</li>
+<li>**CSI**: 수치형 — 0(매우 낮음) ~ 10(매우 높음); 상관분석 전 **표준화 권장**</li>
+<li>**CCI**: 수치형 — -5(매우 낮음) ~ +5(매우 높음); 상관분석 전 **표준화 권장**</li>
+</ul>
+
+  <h2>1. 데이터 요약</h2>
+  <pre class="mono">1500 × 53</pre>
+
+  <h3>컬럼 목록</h3>
+  <ul>
+<li>`year`</li>
+<li>`area`</li>
+<li>`product`</li>
+<li>`client`</li>
+<li>`rpi`</li>
+<li>`t1_csi_res`</li>
+<li>`t1_csi_core`</li>
+<li>`t1_csi_comm`</li>
+<li>`t1_csi_total`</li>
+<li>`t1_cci_res`</li>
+<li>`t1_cci_core`</li>
+<li>`t1_cci_comm`</li>
+<li>`t1_cci_total`</li>
+<li>`t2_csi_res`</li>
+<li>`t2_csi_core`</li>
+<li>`t2_csi_comm`</li>
+<li>`t2_csi_total`</li>
+<li>`t2_cci_res`</li>
+<li>`t2_cci_core`</li>
+<li>`t2_cci_comm`</li>
+<li>`t2_cci_total`</li>
+<li>`d_csi_res`</li>
+<li>`d_csi_core`</li>
+<li>`d_csi_comm`</li>
+<li>`d_csi_total`</li>
+<li>`d_cci_res`</li>
+<li>`d_cci_core`</li>
+<li>`d_cci_comm`</li>
+<li>`d_cci_total`</li>
+<li>`c_csi_res`</li>
+<li>`c_csi_core`</li>
+<li>`c_csi_comm`</li>
+<li>`c_csi_total`</li>
+<li>`c_cci_res`</li>
+<li>`c_cci_core`</li>
+<li>`c_cci_comm`</li>
+<li>`c_cci_total`</li>
+<li>`q1_csi_res`</li>
+<li>`q1_csi_core`</li>
+<li>`q1_csi_comm`</li>
+<li>`q1_csi_total`</li>
+<li>`q1_cci_res`</li>
+<li>`q1_cci_core`</li>
+<li>`q1_cci_comm`</li>
+<li>`q1_cci_total`</li>
+<li>`q2_csi_res`</li>
+<li>`q2_csi_core`</li>
+<li>`q2_csi_comm`</li>
+<li>`q2_csi_total`</li>
+<li>`q2_cci_res`</li>
+<li>`q2_cci_core`</li>
+<li>`q2_cci_comm`</li>
+<li>`q2_cci_total`</li>
+</ul>
+
+  <h3>기본 통계 (수치형 일부)</h3>
+  <pre class="mono">            year  t1_csi_res  t1_csi_core  t1_csi_comm  t1_csi_total  t1_cci_res  t1_cci_core  t1_cci_comm  t1_cci_total  t2_csi_res  t2_csi_core  t2_csi_comm  t2_csi_total  t2_cci_res  t2_cci_core  t2_cci_comm  t2_cci_total  d_csi_res  d_csi_core  d_csi_comm  d_csi_total  d_cci_res  d_cci_core  d_cci_comm  d_cci_total  c_csi_res  c_csi_core  c_csi_comm  c_csi_total  c_cci_res
+count  1500.0000   1500.0000    1500.0000    1500.0000     1500.0000   1500.0000    1500.0000    1500.0000     1500.0000   1500.0000    1500.0000    1500.0000     1500.0000   1500.0000    1500.0000    1500.0000     1500.0000  1500.0000   1500.0000   1500.0000    1500.0000  1500.0000   1500.0000   1500.0000    1500.0000  1500.0000   1500.0000   1500.0000    1500.0000  1500.0000
+mean   2023.9747      7.4381       7.5342       7.4979        7.4900      0.0225      -0.0277      -0.0008       -0.0019      7.4441       7.4778       7.5371        7.4864      0.0666       0.1060       0.0307        0.0679     7.4503      7.5239      7.4502       7.4747    -0.0318     -0.0205      0.0388      -0.0047     7.4973      7.4528      7.4324       7.4608    -0.1004
+std       0.8090      1.4481       1.4127       1.3913        0.8241      1.9653       1.9042       1.8819        1.0954      1.4310       1.4187       1.4012        0.8006      2.0045       1.9518       2.0249        1.1208     1.4400      1.4243      1.4201       0.8258     2.0170      1.9283      1.9379       1.1332     1.4430      1.4437      1.5235       0.8636     2.0655
+min    2023.0000      2.4800       3.0200       2.7000        4.2200     -5.0000      -5.0000      -5.0000       -3.5300      2.5100       3.2900       3.1900        4.8000     -5.0000      -5.0000      -5.0000       -3.9400     2.3300      2.8000      3.0400       4.8600    -5.0000     -5.0000     -5.0000      -3.5500     2.5600      2.7000      1.6600       4.6200    -5.0000
+25%    2023.0000      6.4200       6.5500       6.5700        6.9400     -1.3225      -1.3925      -1.3200       -0.7425      6.4700       6.5100       6.5600        6.9600     -1.2700      -1.1625      -1.2800       -0.6800     6.4575      6.5200      6.4800       6.8800    -1.4525     -1.3700     -1.2400      -0.8100     6.5475      6.4475      6.4000       6.9275    -1.5400
+50%    2024.0000      7.5300       7.5500       7.5150        7.5100      0.0450       0.0100       0.0000       -0.0050      7.4600       7.5050       7.5750        7.5100      0.0800       0.1200       0.0150        0.0700     7.4700      7.5500      7.4800       7.4850     0.0100      0.0450     -0.0350      -0.0200     7.5700      7.4600      7.4450       7.4800    -0.1200
+75%    2025.0000      8.5100       8.5225       8.4925        8.0700      1.3100       1.2725       1.3500        0.7000      8.4800       8.5425       8.5700        8.0100      1.4300       1.4300       1.4200        0.8300     8.5000      8.5700      8.4825       8.0700     1.4125      1.2500      1.3500       0.8200     8.5200      8.5100      8.5125       8.0600     1.3300
+max    2025.0000     10.0000      10.0000      10.0000        9.9600      5.0000       5.0000       5.0000        3.4200     10.0000      10.0000      10.0000        9.9100      5.0000       5.0000       5.0000        3.3900    10.0000     10.0000     10.0000       9.6700     5.0000      5.0000      5.0000       3.7600    10.0000     10.0000     10.0000       9.7200     5.0000</pre>
+
+  <h2>2. 타겟 (Y_Class = RPI) 분석</h2>
+  <pre class="mono">     count  percent
+rpi                
+3       10     0.67
+4      723    48.20
+5      767    51.13</pre>
+
+  <h3>시각화</h3>
+  <div class="plots">
+<figure class="plot"><figcaption>RPI 분포(1=우수~5=불량)</figcaption><img src="../outputs/plots/01_rpi_class_bar_pie.png" alt="RPI 분포(1=우수~5=불량)" loading="lazy" /></figure>
+<figure class="plot"><figcaption>고객사별 RPI (낮을수록 우수)</figcaption><img src="../outputs/plots/02_rpi_by_client_boxplot.png" alt="고객사별 RPI (낮을수록 우수)" loading="lazy" /></figure>
+<figure class="plot"><figcaption>수치형 범위 상위 20 (원 척도)</figcaption><img src="../outputs/plots/03_numeric_range_top20.png" alt="수치형 범위 상위 20 (원 척도)" loading="lazy" /></figure>
+<figure class="plot"><figcaption>RPI 상관 상위 20(CSI·CCI Z)</figcaption><img src="../outputs/plots/04_corr_with_target_top20.png" alt="RPI 상관 상위 20(CSI·CCI Z)" loading="lazy" /></figure>
+<figure class="plot"><figcaption>상위 30 히트맵(CSI·CCI Z)</figcaption><img src="../outputs/plots/05_heatmap_top30.png" alt="상위 30 히트맵(CSI·CCI Z)" loading="lazy" /></figure>
+<figure class="plot"><figcaption>박스플롯 상위 6 (CSI·CCI 원 척도)</figcaption><img src="../outputs/plots/06_boxplot_top6_by_class.png" alt="박스플롯 상위 6 (CSI·CCI 원 척도)" loading="lazy" /></figure>
+  </div>
+
+  <h2>3. 수치형 변수</h2>
+  <ul>
+    <li>상수형 후보: <span class="path">outputs/tables/constant_like_columns.json</span></li>
+    <li>CSI·CCI Z-score 요약: <span class="path">outputs/tables/csi_cci_zscore_summary.json</span></li>
+  </ul>
+
+  <h2>4. 상관관계 및 다중공선성</h2>
+  <blockquote>
+    상관·히트맵은 CSI·CCI에 열별 Z-score를 적용했습니다. 조사 년도 등 그 외 수치형은 원 스케일입니다.
+    박스플롯은 CSI·CCI 원 척도입니다.
+  </blockquote>
+  <ul>
+    <li>다중공선성(|r|≥0.9): <span class="path">outputs/tables/multicollinearity_pairs.csv</span></li>
+    <li>RPI 상관 계수: <span class="path">outputs/tables/correlation_with_target.csv</span></li>
+  </ul>
+
+  <h2>5. 클래스별 분포 비교</h2>
+  <p>상단 시각화 중 박스플롯(상위 6개 변수) 참고.</p>
+
+  <h2>6. 인사이트</h2>
+  <ul>
+<li>**Y_Class**(타겟)는 엑셀 **`rpi`** 열이며, **1=관계 우수 · 5=관계 불량**으로 해석합니다.</li>
+<li>RPI 등급 종류 수: 3 (분포는 plots·표 참고).</li>
+<li>수치형 설명변수 개수(타겟 제외): 49; 그중 상관분석 시 Z-score 적용 CSI·CCI 열: **48**개.</li>
+<li>명백한 상수형 변수는 없습니다.</li>
+<li>선택한 수치형 변수들 사이에 |r|≥0.9인 강한 선형 공선은 드뭅니다.</li>
+  </ul>
+
+  <h2>7. 다음 단계 제안</h2>
+  <ul>
+<li>모델링 시 CSI·CCI에 `StandardScaler`(또는 본 EDA와 동일한 열별 Z-score) 파이프라인을 포함합니다.</li>
+<li>RPI는 낮을수록 우호적 관계이므로, 회귀·랭킹 해석 시 계수 방향을 도메인 척도에 맞게 설명합니다.</li>
+<li>결측·이상치 처리(연도·고객사·평가영역별)와 범주형 인코딩 전략을 확정합니다.</li>
+<li>서수형 RPI에 맞는 Ordinal 회귀 등과 같은 모델 후보를 검토합니다.</li>
+  </ul>
+
+  <footer>
+    이 HTML은 <code>run_full_eda.py</code> 실행 시 <code>reports/EDA_report.html</code> 로 생성됩니다.
+    그래프 경로는 이 파일 기준 상대 경로입니다.
+  </footer>
+</body>
+</html>
