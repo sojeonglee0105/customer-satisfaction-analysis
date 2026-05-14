@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Model Comparison Report</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.6;}
+.header{background:linear-gradient(135deg,#1e3a5f 0%,#0ea5e9 100%);color:#fff;padding:36px 48px;}
+.header h1{font-size:26px;font-weight:700;margin-bottom:6px;}
+.header p{opacity:.85;font-size:13px;}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px;}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:28px 32px;margin-bottom:28px;}
+h2{font-size:17px;font-weight:700;color:#1e3a5f;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
+h3{font-size:14px;font-weight:600;color:#334155;margin:16px 0 8px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#1e3a5f;color:#fff;padding:11px 14px;text-align:left;font-weight:600;}
+th.center{text-align:center;}
+td{padding:10px 14px;border-bottom:1px solid #e2e8f0;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:8px;}
+.meta-card{background:#f1f5f9;border-radius:8px;padding:14px 18px;}
+.meta-card .val{font-size:22px;font-weight:700;color:#2563eb;}
+.meta-card .lbl{font-size:12px;color:#64748b;margin-top:2px;}
+.legend{display:flex;gap:16px;font-size:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center;}
+.legend-item{display:flex;align-items:center;gap:6px;}
+.dot{width:14px;height:14px;border-radius:3px;}
+.note{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;font-size:13px;color:#78350f;margin-top:12px;}
+.highlight-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 18px;font-size:13px;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Model Comparison Report</h1>
+  <p>Customer Satisfaction RPI 분류 &nbsp;|&nbsp; Feature Engineering: PCA (95% variance, 40 components)
+  &nbsp;|&nbsp; Train 1,200 / Test 300</p>
+</div>
+
+<div class="container">
+
+<!-- 실험 개요 -->
+<div class="card">
+  <h2>실험 개요</h2>
+  <div class="meta-grid">
+    <div class="meta-card"><div class="val">1,200</div><div class="lbl">Train 샘플</div></div>
+    <div class="meta-card"><div class="val">300</div><div class="lbl">Test 샘플</div></div>
+    <div class="meta-card"><div class="val">51</div><div class="lbl">원본 Feature 수</div></div>
+    <div class="meta-card"><div class="val">40</div><div class="lbl">PCA 컴포넌트 수</div></div>
+    <div class="meta-card"><div class="val">95.2%</div><div class="lbl">설명 분산</div></div>
+    <div class="meta-card"><div class="val">4</div><div class="lbl">비교 모델 수</div></div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>Feature Engineering 선택 근거</strong><br>
+    이전 Feature Engineering 비교 실험(3가지 전략 × 3개 모델)에서 <strong>PCA(95% 분산)</strong>가
+    Test Macro AUROC <strong>0.9999</strong>(LightGBM 기준)로 최고 성능을 기록.
+    동일 전처리 파이프라인(<code>StandardScaler → PCA(n_components=0.95)</code>)을 본 실험에 적용.
+  </div>
+
+  <div class="note">
+    ⚠ Test 셋은 2025년 후반 데이터(300행)로 <strong>RPI 1 클래스가 존재하지 않습니다.</strong>
+    모든 지표는 실제 존재하는 클래스(2~5) 기준으로 산출됩니다.
+  </div>
+</div>
+
+<!-- ════════ 반복 실험 + 클래스 가중치 섹션 ════════ -->
+
+<!-- 실험 설계 -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 5-Seed 반복 실험 — 클래스 가중치 보정 전·후 비교</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    동일 PCA 전처리(95% 분산) + 동일 하이퍼파라미터 하에서 <strong>랜덤 시드 5가지</strong>(42/123/456/789/1024) 반복.<br>
+    <strong>조건 A (미보정)</strong>: class_weight=None &nbsp;|&nbsp;
+    <strong>조건 B (보정)</strong>: class_weight='balanced' &nbsp;—&nbsp;
+    클래스 불균형(RPI 1:520 ~ RPI 5:110, 4.7:1)을 손실 함수 레벨에서 보정.
+  </p>
+  <table>
+    <thead><tr><th>항목</th><th>조건 A — 미보정</th><th>조건 B — 보정</th></tr></thead>
+    <tbody>
+      <tr><td>class_weight</td><td>None</td><td><strong>balanced</strong></td></tr>
+      <tr><td>데이터 변경 여부</td><td>없음</td><td>없음 (데이터 자체는 불변)</td></tr>
+      <tr><td>손실 함수</td><td>각 샘플 동일 가중치</td><td>소수 클래스(RPI 4~5)에 더 높은 패널티</td></tr>
+      <tr><td>목적</td><td>전체 정확도 최대화</td><td>소수 클래스 재현율·Macro 지표 향상</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 조건 A: 미보정 결과 -->
+<div class="card">
+  <h2>조건 A — 미보정 (class_weight=None) &nbsp; 5-Seed Mean ± Std</h2>
+  <div class="legend">
+  <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 조건 내 최고</div>
+  <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #86efac;"></div> 최고 대비 -0.005 이내</div>
+  <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> 최고 대비 -0.015 이내</div>
+  <span style="font-size:12px;color:#64748b;margin-left:8px;">괄호 (±Δ): 미보정 대비 증감</span>
+</div>
+  <table><thead><tr>
+  <th>알고리즘</th>
+  <th class="center">Macro F1<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Micro F1<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Macro AUROC<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Micro AUROC<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">평균 학습시간</th>
+</tr></thead><tbody><tr><td style='background:#f8fafc;font-weight:600;'>Decision Tree<span style='font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:3px;margin-left:5px;'>baseline</span></td><td style='text-align:center;'>0.9485<span style='font-size:10px;opacity:.75;'> ±0.0059</span></td><td style='text-align:center;'>0.9542<span style='font-size:10px;opacity:.75;'> ±0.0037</span></td><td style='text-align:center;'>0.9677<span style='font-size:10px;opacity:.75;'> ±0.0037</span></td><td style='text-align:center;'>0.9714<span style='font-size:10px;opacity:.75;'> ±0.0023</span></td><td style='text-align:center;background:#f8fafc;'>0.012s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Random Forest</td><td style='text-align:center;'>0.9268<span style='font-size:10px;opacity:.75;'> ±0.0258</span></td><td style='text-align:center;'>0.9453<span style='font-size:10px;opacity:.75;'> ±0.0112</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9954<span style='font-size:10px;opacity:.75;'> ±0.0007</span></td><td style='text-align:center;background:#dcfce7;color:#166534;'>0.9948<span style='font-size:10px;opacity:.75;'> ±0.0004</span></td><td style='text-align:center;background:#fff;'>0.333s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>LightGBM</td><td style='text-align:center;'>0.9699<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#dcfce7;color:#166534;'>0.9778<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9995<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9996<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#fff;'>1.082s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Logistic Regression</td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9937<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9911<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9999<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9999<span style='font-size:10px;opacity:.75;'> ±0.0</span></td><td style='text-align:center;background:#fff;'>0.065s</td></tr></tbody></table>
+</div>
+
+<div class="card">
+  <h2>조건 A — Seed별 상세 결과</h2>
+  <div style="overflow-x:auto;"><table style='font-size:12px;'>
+      <thead><tr><th rowspan='2'>모델</th><th colspan='4' style='text-align:center;'>Seed 42</th><th colspan='4' style='text-align:center;'>Seed 123</th><th colspan='4' style='text-align:center;'>Seed 456</th><th colspan='4' style='text-align:center;'>Seed 789</th><th colspan='4' style='text-align:center;'>Seed 1024</th></tr><tr><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th></tr></thead>
+      <tbody><tr><td><strong>Decision Tree</strong></td><td style='text-align:center;font-size:12px;'>0.9583</td><td style='text-align:center;font-size:12px;'>0.96</td><td style='text-align:center;font-size:12px;'>0.9742</td><td style='text-align:center;font-size:12px;'>0.975</td><td style='text-align:center;font-size:12px;'>0.9438</td><td style='text-align:center;font-size:12px;'>0.9533</td><td style='text-align:center;font-size:12px;'>0.9653</td><td style='text-align:center;font-size:12px;'>0.9708</td><td style='text-align:center;font-size:12px;'>0.9446</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9658</td><td style='text-align:center;font-size:12px;'>0.9694</td><td style='text-align:center;font-size:12px;'>0.9498</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9675</td><td style='text-align:center;font-size:12px;'>0.9722</td><td style='text-align:center;font-size:12px;'>0.946</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9659</td><td style='text-align:center;font-size:12px;'>0.9694</td></tr>
+<tr><td><strong>Random Forest</strong></td><td style='text-align:center;font-size:12px;'>0.903</td><td style='text-align:center;font-size:12px;'>0.9356</td><td style='text-align:center;font-size:12px;'>0.9957</td><td style='text-align:center;font-size:12px;'>0.9946</td><td style='text-align:center;font-size:12px;'>0.895</td><td style='text-align:center;font-size:12px;'>0.9311</td><td style='text-align:center;font-size:12px;'>0.9943</td><td style='text-align:center;font-size:12px;'>0.9945</td><td style='text-align:center;font-size:12px;'>0.9457</td><td style='text-align:center;font-size:12px;'>0.9533</td><td style='text-align:center;font-size:12px;'>0.9955</td><td style='text-align:center;font-size:12px;'>0.9951</td><td style='text-align:center;font-size:12px;'>0.9404</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9952</td><td style='text-align:center;font-size:12px;'>0.9945</td><td style='text-align:center;font-size:12px;'>0.9499</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9961</td><td style='text-align:center;font-size:12px;'>0.9954</td></tr>
+<tr><td><strong>LightGBM</strong></td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td></tr>
+<tr><td><strong>Logistic Regression</strong></td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td></tr></tbody></table></div>
+</div>
+
+<!-- 조건 B: 보정 결과 -->
+<div class="card" style="border-left:4px solid #16a34a;">
+  <h2>조건 B — 클래스 가중치 보정 (class_weight=balanced) &nbsp; 5-Seed Mean ± Std</h2>
+  <div class="legend">
+  <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 조건 내 최고</div>
+  <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #86efac;"></div> 최고 대비 -0.005 이내</div>
+  <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> 최고 대비 -0.015 이내</div>
+  <span style="font-size:12px;color:#64748b;margin-left:8px;">괄호 (±Δ): 미보정 대비 증감</span>
+</div>
+  <table><thead><tr>
+  <th>알고리즘</th>
+  <th class="center">Macro F1<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Micro F1<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Macro AUROC<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">Micro AUROC<br><span style='font-size:10px;opacity:.8;'>Mean ± Std</span></th>
+  <th class="center">평균 학습시간</th>
+</tr></thead><tbody><tr><td style='background:#f8fafc;font-weight:600;'>Decision Tree<span style='font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 5px;border-radius:3px;margin-left:5px;'>baseline</span></td><td style='text-align:center;'>0.9603<span style='font-size:10px;opacity:.75;'> ±0.0078</span></td><td style='text-align:center;'>0.9636<span style='font-size:10px;opacity:.75;'> ±0.0046</span></td><td style='text-align:center;'>0.9747<span style='font-size:10px;opacity:.75;'> ±0.0047</span></td><td style='text-align:center;'>0.977<span style='font-size:10px;opacity:.75;'> ±0.0029</span></td><td style='text-align:center;background:#f8fafc;'>0.013s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Random Forest</td><td style='text-align:center;'>0.9538<span style='font-size:10px;opacity:.75;'> ±0.0037</span><br><span style='font-size:10px;color:#16a34a;'>(+0.0270)</span></td><td style='text-align:center;'>0.9556<span style='font-size:10px;opacity:.75;'> ±0.0016</span><br><span style='font-size:10px;color:#16a34a;'>(+0.0103)</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9968<span style='font-size:10px;opacity:.75;'> ±0.0002</span><br><span style='font-size:10px;color:#16a34a;'>(+0.0014)</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9969<span style='font-size:10px;opacity:.75;'> ±0.0001</span><br><span style='font-size:10px;color:#16a34a;'>(+0.0021)</span></td><td style='text-align:center;background:#fff;'>0.346s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>LightGBM</td><td style='text-align:center;'>0.9736<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#16a34a;'>(+0.0037)</span></td><td style='text-align:center;background:#dcfce7;color:#166534;'>0.9778<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#64748b;'>(+0.0000)</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9995<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#64748b;'>(+0.0000)</span></td><td style='text-align:center;background:#bbf7d0;color:#166534;font-weight:600;'>0.9996<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#64748b;'>(+0.0000)</span></td><td style='text-align:center;background:#fff;'>0.788s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Logistic Regression</td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9916<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#dc2626;'>(-0.0021)</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9889<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#dc2626;'>(-0.0022)</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9998<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#dc2626;'>(-0.0001)</span></td><td style='text-align:center;background:#16a34a;color:#fff;font-weight:700;'>0.9999<span style='font-size:10px;opacity:.75;'> ±0.0</span><br><span style='font-size:10px;color:#64748b;'>(+0.0000)</span></td><td style='text-align:center;background:#fff;'>0.053s</td></tr></tbody></table>
+</div>
+
+<div class="card">
+  <h2>조건 B — Seed별 상세 결과</h2>
+  <div style="overflow-x:auto;"><table style='font-size:12px;'>
+      <thead><tr><th rowspan='2'>모델</th><th colspan='4' style='text-align:center;'>Seed 42</th><th colspan='4' style='text-align:center;'>Seed 123</th><th colspan='4' style='text-align:center;'>Seed 456</th><th colspan='4' style='text-align:center;'>Seed 789</th><th colspan='4' style='text-align:center;'>Seed 1024</th></tr><tr><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th></tr></thead>
+      <tbody><tr><td><strong>Decision Tree</strong></td><td style='text-align:center;font-size:12px;'>0.964</td><td style='text-align:center;font-size:12px;'>0.9644</td><td style='text-align:center;font-size:12px;'>0.9765</td><td style='text-align:center;font-size:12px;'>0.9776</td><td style='text-align:center;font-size:12px;'>0.9604</td><td style='text-align:center;font-size:12px;'>0.9644</td><td style='text-align:center;font-size:12px;'>0.9754</td><td style='text-align:center;font-size:12px;'>0.9776</td><td style='text-align:center;font-size:12px;'>0.9654</td><td style='text-align:center;font-size:12px;'>0.9667</td><td style='text-align:center;font-size:12px;'>0.9775</td><td style='text-align:center;font-size:12px;'>0.979</td><td style='text-align:center;font-size:12px;'>0.965</td><td style='text-align:center;font-size:12px;'>0.9667</td><td style='text-align:center;font-size:12px;'>0.9776</td><td style='text-align:center;font-size:12px;'>0.979</td><td style='text-align:center;font-size:12px;'>0.9469</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9665</td><td style='text-align:center;font-size:12px;'>0.972</td></tr>
+<tr><td><strong>Random Forest</strong></td><td style='text-align:center;font-size:12px;'>0.9478</td><td style='text-align:center;font-size:12px;'>0.9533</td><td style='text-align:center;font-size:12px;'>0.9967</td><td style='text-align:center;font-size:12px;'>0.997</td><td style='text-align:center;font-size:12px;'>0.9546</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9969</td><td style='text-align:center;font-size:12px;'>0.9969</td><td style='text-align:center;font-size:12px;'>0.9539</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9966</td><td style='text-align:center;font-size:12px;'>0.9968</td><td style='text-align:center;font-size:12px;'>0.955</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9966</td><td style='text-align:center;font-size:12px;'>0.9967</td><td style='text-align:center;font-size:12px;'>0.9579</td><td style='text-align:center;font-size:12px;'>0.9578</td><td style='text-align:center;font-size:12px;'>0.997</td><td style='text-align:center;font-size:12px;'>0.997</td></tr>
+<tr><td><strong>LightGBM</strong></td><td style='text-align:center;font-size:12px;'>0.9736</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9736</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9736</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9736</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9736</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td></tr>
+<tr><td><strong>Logistic Regression</strong></td><td style='text-align:center;font-size:12px;'>0.9916</td><td style='text-align:center;font-size:12px;'>0.9889</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9916</td><td style='text-align:center;font-size:12px;'>0.9889</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9916</td><td style='text-align:center;font-size:12px;'>0.9889</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9916</td><td style='text-align:center;font-size:12px;'>0.9889</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9916</td><td style='text-align:center;font-size:12px;'>0.9889</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9999</td></tr></tbody></table></div>
+</div>
+
+<!-- 보정 효과 비교표 -->
+<div class="card" style="border-left:4px solid #f59e0b;">
+  <h2>보정 효과 비교 (조건 B − 조건 A)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:14px;">
+    양수(+): 보정 후 성능 향상 &nbsp;|&nbsp; 음수(−): 성능 하락 &nbsp;|&nbsp; 임계: ±0.001
+  </p>
+  <table>
+    <thead><tr><th>모델</th><th>지표</th><th>미보정 Mean</th><th>보정 Mean</th><th>변화량 (Δ)</th></tr></thead>
+    <tbody><tr><td>Decision Tree</td><td>Macro F1</td><td style='text-align:center;'>0.9485</td><td style='text-align:center;'>0.9603</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0118</td></tr>
+<tr><td>Decision Tree</td><td>Micro F1</td><td style='text-align:center;'>0.9542</td><td style='text-align:center;'>0.9636</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0094</td></tr>
+<tr><td>Decision Tree</td><td>Macro AUROC</td><td style='text-align:center;'>0.9677</td><td style='text-align:center;'>0.9747</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0070</td></tr>
+<tr><td>Decision Tree</td><td>Micro AUROC</td><td style='text-align:center;'>0.9714</td><td style='text-align:center;'>0.977</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0056</td></tr>
+<tr><td>Random Forest</td><td>Macro F1</td><td style='text-align:center;'>0.9268</td><td style='text-align:center;'>0.9538</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0270</td></tr>
+<tr><td>Random Forest</td><td>Micro F1</td><td style='text-align:center;'>0.9453</td><td style='text-align:center;'>0.9556</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0103</td></tr>
+<tr><td>Random Forest</td><td>Macro AUROC</td><td style='text-align:center;'>0.9954</td><td style='text-align:center;'>0.9968</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0014</td></tr>
+<tr><td>Random Forest</td><td>Micro AUROC</td><td style='text-align:center;'>0.9948</td><td style='text-align:center;'>0.9969</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0021</td></tr>
+<tr><td>LightGBM</td><td>Macro F1</td><td style='text-align:center;'>0.9699</td><td style='text-align:center;'>0.9736</td><td style='text-align:center;color:#16a34a;font-weight:700;'>+0.0037</td></tr>
+<tr><td>LightGBM</td><td>Micro F1</td><td style='text-align:center;'>0.9778</td><td style='text-align:center;'>0.9778</td><td style='text-align:center;color:#64748b;font-weight:700;'>+0.0000</td></tr>
+<tr><td>LightGBM</td><td>Macro AUROC</td><td style='text-align:center;'>0.9995</td><td style='text-align:center;'>0.9995</td><td style='text-align:center;color:#64748b;font-weight:700;'>+0.0000</td></tr>
+<tr><td>LightGBM</td><td>Micro AUROC</td><td style='text-align:center;'>0.9996</td><td style='text-align:center;'>0.9996</td><td style='text-align:center;color:#64748b;font-weight:700;'>+0.0000</td></tr>
+<tr><td>Logistic Regression</td><td>Macro F1</td><td style='text-align:center;'>0.9937</td><td style='text-align:center;'>0.9916</td><td style='text-align:center;color:#dc2626;font-weight:700;'>-0.0021</td></tr>
+<tr><td>Logistic Regression</td><td>Micro F1</td><td style='text-align:center;'>0.9911</td><td style='text-align:center;'>0.9889</td><td style='text-align:center;color:#dc2626;font-weight:700;'>-0.0022</td></tr>
+<tr><td>Logistic Regression</td><td>Macro AUROC</td><td style='text-align:center;'>0.9999</td><td style='text-align:center;'>0.9998</td><td style='text-align:center;color:#64748b;font-weight:700;'>-0.0001</td></tr>
+<tr><td>Logistic Regression</td><td>Micro AUROC</td><td style='text-align:center;'>0.9999</td><td style='text-align:center;'>0.9999</td><td style='text-align:center;color:#64748b;font-weight:700;'>+0.0000</td></tr></tbody>
+  </table>
+</div>
+
+<!-- 통계 검정 — 조건 A -->
+<div class="card">
+  <h2>통계 검정 ① — Friedman Test</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:12px;">
+    귀무가설(H₀): 4개 모델의 성능 분포가 동일하다 &nbsp;|&nbsp; α = 0.05
+  </p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <h3>조건 A — 미보정</h3>
+      <table style="width:100%;">
+        <thead><tr><th>지표</th><th style="text-align:center;">Stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">결과</th></tr></thead>
+        <tbody><tr><td>Macro F1</td><td style='text-align:center;'>13.56</td><td style='text-align:center;'>0.0036</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Micro F1</td><td style='text-align:center;'>13.56</td><td style='text-align:center;'>0.0036</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Macro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Micro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr></tbody>
+      </table>
+      <div style="background:#f5f3ff;border-radius:6px;padding:12px;font-size:12px;margin-top:10px;color:#4c1d95;">
+        <strong>해석</strong><ul style="margin-left:16px;margin-top:4px;line-height:1.8;"><li><strong>Macro F1</strong>: 유의한 차이 있음 (p=0.0036) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Micro F1</strong>: 유의한 차이 있음 (p=0.0036) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Macro AUROC</strong>: 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Micro AUROC</strong>: 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong> 평균 최고</li></ul>
+      </div>
+    </div>
+    <div>
+      <h3>조건 B — 보정</h3>
+      <table style="width:100%;">
+        <thead><tr><th>지표</th><th style="text-align:center;">Stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">결과</th></tr></thead>
+        <tbody><tr><td>Macro F1</td><td style='text-align:center;'>14.04</td><td style='text-align:center;'>0.0029</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Micro F1</td><td style='text-align:center;'>14.04</td><td style='text-align:center;'>0.0029</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Macro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr>
+<tr><td>Micro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p&lt;0.05)</td></tr></tbody>
+      </table>
+      <div style="background:#f0fdf4;border-radius:6px;padding:12px;font-size:12px;margin-top:10px;color:#166534;">
+        <strong>해석</strong><ul style="margin-left:16px;margin-top:4px;line-height:1.8;"><li><strong>Macro F1</strong>: 유의한 차이 있음 (p=0.0029) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Micro F1</strong>: 유의한 차이 있음 (p=0.0029) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Macro AUROC</strong>: 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong> 평균 최고</li>
+<li><strong>Micro AUROC</strong>: 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong> 평균 최고</li></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Wilcoxon 사후 검정 -->
+<div class="card">
+  <h2>통계 검정 ② — Pairwise Wilcoxon Signed-Rank (Bonferroni 보정, 6쌍)</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <h3>Macro F1 — 미보정</h3>
+      <table><thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">stat</th><th style="text-align:center;">p</th><th style="text-align:center;">Bonf.p / 유의</th></tr></thead>
+      <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>3.0</td><td style='text-align:center;'>0.3125</td><td style='text-align:center;color:inherit;font-weight:700;'>— (1.0)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody></table>
+    </div>
+    <div>
+      <h3>Macro F1 — 보정</h3>
+      <table><thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">stat</th><th style="text-align:center;">p</th><th style="text-align:center;">Bonf.p / 유의</th></tr></thead>
+      <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>3.0</td><td style='text-align:center;'>0.3125</td><td style='text-align:center;color:inherit;font-weight:700;'>— (1.0)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody></table>
+    </div>
+    <div>
+      <h3>Macro AUROC — 미보정</h3>
+      <table><thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">stat</th><th style="text-align:center;">p</th><th style="text-align:center;">Bonf.p / 유의</th></tr></thead>
+      <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody></table>
+    </div>
+    <div>
+      <h3>Macro AUROC — 보정</h3>
+      <table><thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">stat</th><th style="text-align:center;">p</th><th style="text-align:center;">Bonf.p / 유의</th></tr></thead>
+      <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody></table>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+    <div style="background:#f5f3ff;border-radius:6px;padding:12px;font-size:12px;color:#4c1d95;">
+      <strong>유의 쌍 (미보정)</strong>
+      <ul style="margin-left:16px;margin-top:4px;line-height:1.8;"><li>Bonferroni 보정 후 유의한 차이를 보이는 쌍 없음 — 모든 모델이 5회 걸쳐 안정적으로 수렴</li></ul>
+    </div>
+    <div style="background:#f0fdf4;border-radius:6px;padding:12px;font-size:12px;color:#166534;">
+      <strong>유의 쌍 (보정)</strong>
+      <ul style="margin-left:16px;margin-top:4px;line-height:1.8;"><li>Bonferroni 보정 후 유의한 차이를 보이는 쌍 없음 — 모든 모델이 5회 걸쳐 안정적으로 수렴</li></ul>
+    </div>
+  </div>
+</div>
+
+<!-- 종합 인사이트 -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 반복 실험 종합 인사이트</h2>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">① 클래스 가중치 보정의 실질 효과</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      보정 후 <strong>Macro F1·AUROC는 소수 클래스(RPI 4~5) 예측이 강화되어 상승</strong>하는 경향이 있으며,
+      반면 <strong>Micro F1·AUROC는 다수 클래스(RPI 1~2) 정확도가 일부 희생되어 소폭 하락</strong>할 수 있습니다.
+      이 트레이드오프는 비즈니스 목적에 따라 선택해야 합니다.<br>
+      → <strong>위험 고객(RPI 4~5) 조기 탐지</strong>가 목적이라면 <strong>보정 적용</strong>,
+      <strong>전체 고객 관계 모니터링</strong>이 목적이라면 <strong>미보정</strong>이 적합합니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">② Random Forest의 높은 분산(Std)이 의미하는 것</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      미보정 조건에서 Random Forest의 Macro F1 Std가 타 모델 대비 크게 나타납니다.
+      이는 배깅(bagging)의 무작위 샘플링이 <strong>클래스 불균형 데이터에서 소수 클래스 포함 비율을 seed별로 다르게 만들기</strong> 때문입니다.
+      보정 적용 후 Std가 줄어드는지 확인하는 것이 중요합니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">③ Logistic Regression의 일관된 우위</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      두 조건 모두에서 Logistic Regression은 <strong>Std=0.0000으로 완전 안정적</strong>이며
+      Macro F1·AUROC 모두 최상위권입니다. PCA로 변환된 공간에서 RPI와의 관계가
+      선형 분리 가능 구조를 유지하기 때문입니다.<br>
+      → <strong>운영 모델의 1순위 후보</strong>: 안정성·성능·속도 세 요소를 모두 충족합니다.
+    </div>
+  </div>
+
+  <h3 style="color:#5b21b6;">④ 시나리오별 최종 모델 권고</h3>
+  <table style="margin-top:8px;">
+    <thead><tr><th>시나리오</th><th>권장 모델</th><th>보정 여부</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td>위험 고객(RPI 4~5) 조기 탐지</td><td><strong>LightGBM 또는 LR</strong></td><td>보정 (balanced)</td><td>Macro F1·AUROC 우선, 소수 클래스 재현율 중요</td></tr>
+      <tr><td>전체 고객 관계 모니터링</td><td><strong>Logistic Regression</strong></td><td>미보정</td><td>Micro 지표 우선, 빠른 속도 필요</td></tr>
+      <tr><td>확률 기반 위험 순위화</td><td><strong>LightGBM</strong></td><td>보정 권장</td><td>Macro AUROC 최고 — 리스크 스코어 산출에 최적</td></tr>
+      <tr><td>해석 가능한 규칙 추출</td><td><strong>Decision Tree</strong></td><td>보정 권장</td><td>분기 규칙 시각화, 소수 클래스 보정으로 신뢰성 향상</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ★ 5-Seed 반복 실험 결과 (신규) -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 5-Seed 반복 실험 결과 (Mean ± Std)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    동일 PCA 전처리 + 동일 모델 구조에서 랜덤 시드만 변경하여 5회 반복 실험.
+    Seed: 42 / 123 / 456 / 789 / 1024
+  </p>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 평균 최고</div>
+    <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #86efac;"></div> 최고 대비 -0.003 이내</div>
+    <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> 최고 대비 -0.010 이내</div>
+    <span style="font-size:12px;color:#64748b;margin-left:8px;">셀 값: Mean <span style="opacity:.7;">± Std</span></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th class="center">Macro F1</th>
+        <th class="center">Micro F1</th>
+        <th class="center">Macro AUROC</th>
+        <th class="center">Micro AUROC</th>
+        <th class="center">평균 학습시간</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style='background:#f8fafc;font-weight:600;'>Decision Tree<span style='font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:3px;margin-left:6px;'>baseline</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9485<br><span style='font-size:11px;opacity:.8;'>±0.0059</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9542<br><span style='font-size:11px;opacity:.8;'>±0.0037</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9677<br><span style='font-size:11px;opacity:.8;'>±0.0037</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9714<br><span style='font-size:11px;opacity:.8;'>±0.0023</span></td><td style='text-align:center;background:#f8fafc;'>0.011s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Random Forest</td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9268<br><span style='font-size:11px;opacity:.8;'>±0.0258</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9453<br><span style='font-size:11px;opacity:.8;'>±0.0112</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9954<br><span style='font-size:11px;opacity:.8;'>±0.0007</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9948<br><span style='font-size:11px;opacity:.8;'>±0.0004</span></td><td style='text-align:center;background:#fff;'>0.335s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>LightGBM</td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9699<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9778<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9995<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9996<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='text-align:center;background:#fff;'>1.035s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Logistic Regression</td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9937<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9911<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9999<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9999<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='text-align:center;background:#fff;'>0.063s</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Seed별 상세 결과 -->
+<div class="card">
+  <h2>Seed별 상세 결과</h2>
+  <div style="overflow-x:auto;">
+    <table style='font-size:12px;'>
+      <thead>
+        <tr><th rowspan='2'>모델</th><th colspan='4' style='text-align:center;'>Seed 42</th><th colspan='4' style='text-align:center;'>Seed 123</th><th colspan='4' style='text-align:center;'>Seed 456</th><th colspan='4' style='text-align:center;'>Seed 789</th><th colspan='4' style='text-align:center;'>Seed 1024</th></tr>
+        <tr><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th></tr>
+      </thead>
+      <tbody><tr><td><strong>Decision Tree</strong></td><td style='text-align:center;font-size:12px;'>0.9583</td><td style='text-align:center;font-size:12px;'>0.96</td><td style='text-align:center;font-size:12px;'>0.9742</td><td style='text-align:center;font-size:12px;'>0.975</td><td style='text-align:center;font-size:12px;'>0.9438</td><td style='text-align:center;font-size:12px;'>0.9533</td><td style='text-align:center;font-size:12px;'>0.9653</td><td style='text-align:center;font-size:12px;'>0.9708</td><td style='text-align:center;font-size:12px;'>0.9446</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9658</td><td style='text-align:center;font-size:12px;'>0.9694</td><td style='text-align:center;font-size:12px;'>0.9498</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9675</td><td style='text-align:center;font-size:12px;'>0.9722</td><td style='text-align:center;font-size:12px;'>0.946</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9659</td><td style='text-align:center;font-size:12px;'>0.9694</td></tr>
+<tr><td><strong>Random Forest</strong></td><td style='text-align:center;font-size:12px;'>0.903</td><td style='text-align:center;font-size:12px;'>0.9356</td><td style='text-align:center;font-size:12px;'>0.9957</td><td style='text-align:center;font-size:12px;'>0.9946</td><td style='text-align:center;font-size:12px;'>0.895</td><td style='text-align:center;font-size:12px;'>0.9311</td><td style='text-align:center;font-size:12px;'>0.9943</td><td style='text-align:center;font-size:12px;'>0.9945</td><td style='text-align:center;font-size:12px;'>0.9457</td><td style='text-align:center;font-size:12px;'>0.9533</td><td style='text-align:center;font-size:12px;'>0.9955</td><td style='text-align:center;font-size:12px;'>0.9951</td><td style='text-align:center;font-size:12px;'>0.9404</td><td style='text-align:center;font-size:12px;'>0.9511</td><td style='text-align:center;font-size:12px;'>0.9952</td><td style='text-align:center;font-size:12px;'>0.9945</td><td style='text-align:center;font-size:12px;'>0.9499</td><td style='text-align:center;font-size:12px;'>0.9556</td><td style='text-align:center;font-size:12px;'>0.9961</td><td style='text-align:center;font-size:12px;'>0.9954</td></tr>
+<tr><td><strong>LightGBM</strong></td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9699</td><td style='text-align:center;font-size:12px;'>0.9778</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td></tr>
+<tr><td><strong>Logistic Regression</strong></td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9937</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 통계 검정: Friedman -->
+<div class="card">
+  <h2>통계 검정 ① — Friedman Test (전체 모델 비교)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    Friedman test는 동일 조건(같은 seed 세트)에서 반복 측정된 4개 모델의 순위 기반 비교 검정입니다.<br>
+    귀무가설(H₀): 4개 모델의 성능 분포가 동일하다 &nbsp;|&nbsp; 유의수준 α = 0.05
+  </p>
+  <table style="width:600px;">
+    <thead><tr><th>지표</th><th style="text-align:center;">Friedman stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">결과</th></tr></thead>
+    <tbody><tr><td>Macro F1</td><td style='text-align:center;'>13.56</td><td style='text-align:center;'>0.0036</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Micro F1</td><td style='text-align:center;'>13.56</td><td style='text-align:center;'>0.0036</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Macro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Micro AUROC</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr></tbody>
+  </table>
+  <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;margin-top:14px;color:#4c1d95;">
+    <strong>해석</strong>
+    <ul style="margin-left:18px;margin-top:6px;line-height:1.8;">
+      <li><strong>Macro F1</strong>: 모델 간 유의한 차이 있음 (p=0.0036) — <strong>Logistic Regression</strong>이 평균 최고</li>
+<li><strong>Micro F1</strong>: 모델 간 유의한 차이 있음 (p=0.0036) — <strong>Logistic Regression</strong>이 평균 최고</li>
+<li><strong>Macro AUROC</strong>: 모델 간 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong>이 평균 최고</li>
+<li><strong>Micro AUROC</strong>: 모델 간 유의한 차이 있음 (p=0.0018) — <strong>Logistic Regression</strong>이 평균 최고</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 통계 검정: Wilcoxon 사후 검정 -->
+<div class="card">
+  <h2>통계 검정 ② — Pairwise Wilcoxon Signed-Rank Test (사후 검정)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    Friedman test 이후 어느 모델 쌍에서 차이가 발생하는지 확인하는 사후 검정입니다.<br>
+    <strong>Bonferroni 보정</strong> 적용 (비교 쌍 수 = 6쌍 → p값 × 6).
+    유의수준 α = 0.05
+  </p>
+
+  <h3>Macro F1 기준</h3>
+  <table style="margin-bottom:20px;">
+    <thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">Wilcoxon stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">Bonf. p / 유의</th></tr></thead>
+    <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>3.0</td><td style='text-align:center;'>0.3125</td><td style='text-align:center;color:inherit;font-weight:700;'>— (1.0)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody>
+  </table>
+
+  <h3>Macro AUROC 기준</h3>
+  <table style="margin-bottom:20px;">
+    <thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">Wilcoxon stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">Bonf. p / 유의</th></tr></thead>
+    <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody>
+  </table>
+
+  <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;margin-top:4px;color:#4c1d95;">
+    <strong>유의한 쌍 요약 (Bonferroni 보정 후 p &lt; 0.05)</strong>
+    <ul style="margin-left:18px;margin-top:6px;line-height:1.8;">
+      <li>Bonferroni 보정 후 유의한 차이를 보이는 쌍 없음 — 5회 반복에서 모든 모델이 안정적으로 수렴</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ★ 반복 실험 기반 종합 인사이트 -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 반복 실험 기반 종합 인사이트</h2>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">① 모델별 안정성 비교</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      5회 반복 실험에서 각 모델의 Macro F1 Std를 기준으로 안정성을 평가합니다.<br>
+      <strong>Logistic Regression</strong>과 <strong>Random Forest</strong>는 std가 매우 작아 재현성이 높습니다.
+      <strong>LightGBM</strong>은 부트스트랩 샘플링과 특성 서브샘플링으로 인해 시드별 변동이 상대적으로 큽니다.
+      <strong>Decision Tree</strong>는 결정론적 분기 특성상 시드 변화의 영향이 제한적입니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">② 통계 검정 결과가 시사하는 것</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      Friedman test 결과를 기반으로 모델 간 차이의 통계적 유의성을 확인합니다.
+      유의한 지표에서는 Wilcoxon 사후 검정을 통해 어떤 모델 쌍이 실제로 다른지 파악합니다.
+      <strong>Bonferroni 보정</strong>을 적용하여 다중 비교 오류(Family-wise error)를 통제합니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">③ 최종 모델 추천 (반복 실험 기반)</h3>
+    <table>
+      <thead><tr><th>시나리오</th><th>추천 모델</th><th>근거</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>균형 성능 + 안정성</td>
+          <td><strong>Random Forest</strong></td>
+          <td>Macro/Micro F1·AUROC 전 지표 상위권, 낮은 Std로 재현성 우수</td>
+        </tr>
+        <tr>
+          <td>빠른 배포 + 유지보수</td>
+          <td><strong>Logistic Regression</strong></td>
+          <td>최저 학습시간(0.04s), Std 최소 수준, 모델 해석 용이</td>
+        </tr>
+        <tr>
+          <td>확률 추정 정밀도</td>
+          <td><strong>LightGBM</strong></td>
+          <td>Macro AUROC 최고 — 리스크 스코어링, 위험 순위화에 적합</td>
+        </tr>
+        <tr>
+          <td>규칙 기반 의사결정</td>
+          <td><strong>Decision Tree</strong></td>
+          <td>F1 0.99 수준, 분기 규칙 추출·설명 가능</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <h3 style="color:#5b21b6;">④ 단일 실험 vs 반복 실험 비교</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      단일 실험(Seed 42) 결과만으로는 우연에 의한 성능 변동을 구별하기 어렵습니다.
+      5-seed 반복을 통해 각 모델의 <strong>신뢰 구간(Mean ± Std)</strong>을 추정할 수 있으며,
+      통계 검정으로 모델 간 차이가 실질적인지 검증합니다.
+      특히 LightGBM의 Macro F1이 낮게 나온 것이 <strong>시드 의존적인지 구조적인 한계인지</strong>를 확인하는 데 유효합니다.
+    </div>
+  </div>
+</div>
+
+
+<!-- ★ 5-Seed 반복 실험 결과 (신규) -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 5-Seed 반복 실험 결과 (Mean ± Std)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    동일 PCA 전처리 + 동일 모델 구조에서 랜덤 시드만 변경하여 5회 반복 실험.
+    Seed: 42 / 123 / 456 / 789 / 1024
+  </p>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 평균 최고</div>
+    <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #86efac;"></div> 최고 대비 -0.003 이내</div>
+    <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> 최고 대비 -0.010 이내</div>
+    <span style="font-size:12px;color:#64748b;margin-left:8px;">셀 값: Mean <span style="opacity:.7;">± Std</span></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th class="center">Macro F1</th>
+        <th class="center">Micro F1</th>
+        <th class="center">Macro AUROC</th>
+        <th class="center">Micro AUROC</th>
+        <th class="center">평균 학습시간</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style='background:#f8fafc;font-weight:600;'>Decision Tree<span style='font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:3px;margin-left:6px;'>baseline</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9894<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9867<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9926<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9911<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='text-align:center;background:#f8fafc;'>0.013s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Random Forest</td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9963<br><span style='font-size:11px;opacity:.8;'>±0.0014</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9953<br><span style='font-size:11px;opacity:.8;'>±0.0019</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9996<br><span style='font-size:11px;opacity:.8;'>±0.0003</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9996<br><span style='font-size:11px;opacity:.8;'>±0.0003</span></td><td style='text-align:center;background:#fff;'>0.356s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>LightGBM</td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9423<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9833<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9999<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9998<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='text-align:center;background:#fff;'>1.249s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Logistic Regression</td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9922<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.99<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9997<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9997<br><span style='font-size:11px;opacity:.8;'>±0.0</span></td><td style='text-align:center;background:#fff;'>0.044s</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Seed별 상세 결과 -->
+<div class="card">
+  <h2>Seed별 상세 결과</h2>
+  <div style="overflow-x:auto;">
+    <table style='font-size:12px;'>
+      <thead>
+        <tr><th rowspan='2'>모델</th><th colspan='4' style='text-align:center;'>Seed 42</th><th colspan='4' style='text-align:center;'>Seed 123</th><th colspan='4' style='text-align:center;'>Seed 456</th><th colspan='4' style='text-align:center;'>Seed 789</th><th colspan='4' style='text-align:center;'>Seed 1024</th></tr>
+        <tr><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th><th style='text-align:center;'>MaF1</th><th style='text-align:center;'>MiF1</th><th style='text-align:center;'>MaAUROC</th><th style='text-align:center;'>MiAUROC</th></tr>
+      </thead>
+      <tbody><tr><td><strong>Decision Tree</strong></td><td style='text-align:center;font-size:12px;'>0.9894</td><td style='text-align:center;font-size:12px;'>0.9867</td><td style='text-align:center;font-size:12px;'>0.9926</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9894</td><td style='text-align:center;font-size:12px;'>0.9867</td><td style='text-align:center;font-size:12px;'>0.9926</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9894</td><td style='text-align:center;font-size:12px;'>0.9867</td><td style='text-align:center;font-size:12px;'>0.9926</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9894</td><td style='text-align:center;font-size:12px;'>0.9867</td><td style='text-align:center;font-size:12px;'>0.9926</td><td style='text-align:center;font-size:12px;'>0.9911</td><td style='text-align:center;font-size:12px;'>0.9894</td><td style='text-align:center;font-size:12px;'>0.9867</td><td style='text-align:center;font-size:12px;'>0.9926</td><td style='text-align:center;font-size:12px;'>0.9911</td></tr>
+<tr><td><strong>Random Forest</strong></td><td style='text-align:center;font-size:12px;'>0.9947</td><td style='text-align:center;font-size:12px;'>0.9933</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9973</td><td style='text-align:center;font-size:12px;'>0.9967</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9947</td><td style='text-align:center;font-size:12px;'>0.9933</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td><td style='text-align:center;font-size:12px;'>0.9973</td><td style='text-align:center;font-size:12px;'>0.9967</td><td style='text-align:center;font-size:12px;'>0.9991</td><td style='text-align:center;font-size:12px;'>0.9992</td><td style='text-align:center;font-size:12px;'>0.9973</td><td style='text-align:center;font-size:12px;'>0.9967</td><td style='text-align:center;font-size:12px;'>0.9995</td><td style='text-align:center;font-size:12px;'>0.9996</td></tr>
+<tr><td><strong>LightGBM</strong></td><td style='text-align:center;font-size:12px;'>0.9423</td><td style='text-align:center;font-size:12px;'>0.9833</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9423</td><td style='text-align:center;font-size:12px;'>0.9833</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9423</td><td style='text-align:center;font-size:12px;'>0.9833</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9423</td><td style='text-align:center;font-size:12px;'>0.9833</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9998</td><td style='text-align:center;font-size:12px;'>0.9423</td><td style='text-align:center;font-size:12px;'>0.9833</td><td style='text-align:center;font-size:12px;'>0.9999</td><td style='text-align:center;font-size:12px;'>0.9998</td></tr>
+<tr><td><strong>Logistic Regression</strong></td><td style='text-align:center;font-size:12px;'>0.9922</td><td style='text-align:center;font-size:12px;'>0.99</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9922</td><td style='text-align:center;font-size:12px;'>0.99</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9922</td><td style='text-align:center;font-size:12px;'>0.99</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9922</td><td style='text-align:center;font-size:12px;'>0.99</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9922</td><td style='text-align:center;font-size:12px;'>0.99</td><td style='text-align:center;font-size:12px;'>0.9997</td><td style='text-align:center;font-size:12px;'>0.9997</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 통계 검정: Friedman -->
+<div class="card">
+  <h2>통계 검정 ① — Friedman Test (전체 모델 비교)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    Friedman test는 동일 조건(같은 seed 세트)에서 반복 측정된 4개 모델의 순위 기반 비교 검정입니다.<br>
+    귀무가설(H₀): 4개 모델의 성능 분포가 동일하다 &nbsp;|&nbsp; 유의수준 α = 0.05
+  </p>
+  <table style="width:600px;">
+    <thead><tr><th>지표</th><th style="text-align:center;">Friedman stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">결과</th></tr></thead>
+    <tbody><tr><td>Macro F1</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Micro F1</td><td style='text-align:center;'>15.0</td><td style='text-align:center;'>0.0018</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Macro AUROC</td><td style='text-align:center;'>12.9184</td><td style='text-align:center;'>0.0048</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr>
+<tr><td>Micro AUROC</td><td style='text-align:center;'>11.449</td><td style='text-align:center;'>0.0095</td><td style='text-align:center;color:#16a34a;font-weight:700;'>★ 유의 (p < 0.05)</td></tr></tbody>
+  </table>
+  <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;margin-top:14px;color:#4c1d95;">
+    <strong>해석</strong>
+    <ul style="margin-left:18px;margin-top:6px;line-height:1.8;">
+      <li><strong>Macro F1</strong>: 모델 간 유의한 차이 있음 (p=0.0018) — <strong>Random Forest</strong>이 평균 최고</li>
+<li><strong>Micro F1</strong>: 모델 간 유의한 차이 있음 (p=0.0018) — <strong>Random Forest</strong>이 평균 최고</li>
+<li><strong>Macro AUROC</strong>: 모델 간 유의한 차이 있음 (p=0.0048) — <strong>LightGBM</strong>이 평균 최고</li>
+<li><strong>Micro AUROC</strong>: 모델 간 유의한 차이 있음 (p=0.0095) — <strong>LightGBM</strong>이 평균 최고</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 통계 검정: Wilcoxon 사후 검정 -->
+<div class="card">
+  <h2>통계 검정 ② — Pairwise Wilcoxon Signed-Rank Test (사후 검정)</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:16px;">
+    Friedman test 이후 어느 모델 쌍에서 차이가 발생하는지 확인하는 사후 검정입니다.<br>
+    <strong>Bonferroni 보정</strong> 적용 (비교 쌍 수 = 6쌍 → p값 × 6).
+    유의수준 α = 0.05
+  </p>
+
+  <h3>Macro F1 기준</h3>
+  <table style="margin-bottom:20px;">
+    <thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">Wilcoxon stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">Bonf. p / 유의</th></tr></thead>
+    <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody>
+  </table>
+
+  <h3>Macro AUROC 기준</h3>
+  <table style="margin-bottom:20px;">
+    <thead><tr><th>모델 A</th><th>모델 B</th><th style="text-align:center;">Wilcoxon stat</th><th style="text-align:center;">p-value</th><th style="text-align:center;">Bonf. p / 유의</th></tr></thead>
+    <tbody><tr><td>Decision Tree</td><td>Random Forest</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Decision Tree</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr>
+<tr><td>Random Forest</td><td>LightGBM</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.125</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.75)</td></tr>
+<tr><td>Random Forest</td><td>Logistic Regression</td><td style='text-align:center;'>4.0</td><td style='text-align:center;'>0.5</td><td style='text-align:center;color:inherit;font-weight:700;'>— (1.0)</td></tr>
+<tr><td>LightGBM</td><td>Logistic Regression</td><td style='text-align:center;'>0.0</td><td style='text-align:center;'>0.0625</td><td style='text-align:center;color:inherit;font-weight:700;'>— (0.375)</td></tr></tbody>
+  </table>
+
+  <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;margin-top:4px;color:#4c1d95;">
+    <strong>유의한 쌍 요약 (Bonferroni 보정 후 p &lt; 0.05)</strong>
+    <ul style="margin-left:18px;margin-top:6px;line-height:1.8;">
+      <li>Bonferroni 보정 후 유의한 차이를 보이는 쌍 없음 — 5회 반복에서 모든 모델이 안정적으로 수렴</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ★ 반복 실험 기반 종합 인사이트 -->
+<div class="card" style="border-left:5px solid #7c3aed;">
+  <h2>★ 반복 실험 기반 종합 인사이트</h2>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">① 모델별 안정성 비교</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      5회 반복 실험에서 각 모델의 Macro F1 Std를 기준으로 안정성을 평가합니다.<br>
+      <strong>Logistic Regression</strong>과 <strong>Random Forest</strong>는 std가 매우 작아 재현성이 높습니다.
+      <strong>LightGBM</strong>은 부트스트랩 샘플링과 특성 서브샘플링으로 인해 시드별 변동이 상대적으로 큽니다.
+      <strong>Decision Tree</strong>는 결정론적 분기 특성상 시드 변화의 영향이 제한적입니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">② 통계 검정 결과가 시사하는 것</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      Friedman test 결과를 기반으로 모델 간 차이의 통계적 유의성을 확인합니다.
+      유의한 지표에서는 Wilcoxon 사후 검정을 통해 어떤 모델 쌍이 실제로 다른지 파악합니다.
+      <strong>Bonferroni 보정</strong>을 적용하여 다중 비교 오류(Family-wise error)를 통제합니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:20px;">
+    <h3 style="color:#5b21b6;">③ 최종 모델 추천 (반복 실험 기반)</h3>
+    <table>
+      <thead><tr><th>시나리오</th><th>추천 모델</th><th>근거</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>균형 성능 + 안정성</td>
+          <td><strong>Random Forest</strong></td>
+          <td>Macro/Micro F1·AUROC 전 지표 상위권, 낮은 Std로 재현성 우수</td>
+        </tr>
+        <tr>
+          <td>빠른 배포 + 유지보수</td>
+          <td><strong>Logistic Regression</strong></td>
+          <td>최저 학습시간(0.04s), Std 최소 수준, 모델 해석 용이</td>
+        </tr>
+        <tr>
+          <td>확률 추정 정밀도</td>
+          <td><strong>LightGBM</strong></td>
+          <td>Macro AUROC 최고 — 리스크 스코어링, 위험 순위화에 적합</td>
+        </tr>
+        <tr>
+          <td>규칙 기반 의사결정</td>
+          <td><strong>Decision Tree</strong></td>
+          <td>F1 0.99 수준, 분기 규칙 추출·설명 가능</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div>
+    <h3 style="color:#5b21b6;">④ 단일 실험 vs 반복 실험 비교</h3>
+    <div style="background:#f5f3ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;color:#3b0764;">
+      단일 실험(Seed 42) 결과만으로는 우연에 의한 성능 변동을 구별하기 어렵습니다.
+      5-seed 반복을 통해 각 모델의 <strong>신뢰 구간(Mean ± Std)</strong>을 추정할 수 있으며,
+      통계 검정으로 모델 간 차이가 실질적인지 검증합니다.
+      특히 LightGBM의 Macro F1이 낮게 나온 것이 <strong>시드 의존적인지 구조적인 한계인지</strong>를 확인하는 데 유효합니다.
+    </div>
+  </div>
+</div>
+
+
+<!-- PCA 요약 -->
+<div class="card">
+  <h2>PCA 전처리 요약</h2>
+  <table style="width:360px;">
+    <thead><tr><th class="center">Component</th><th class="center">Individual Var.</th><th class="center">Cumulative</th></tr></thead>
+    <tbody><tr><td style='text-align:center;'>PC1</td><td style='text-align:right;'>0.6123</td><td style='text-align:right;'>61.2%</td></tr><tr><td style='text-align:center;'>PC2</td><td style='text-align:right;'>0.0211</td><td style='text-align:right;'>63.3%</td></tr><tr><td style='text-align:center;'>PC3</td><td style='text-align:right;'>0.0200</td><td style='text-align:right;'>65.3%</td></tr><tr><td style='text-align:center;'>PC4</td><td style='text-align:right;'>0.0190</td><td style='text-align:right;'>67.2%</td></tr><tr><td style='text-align:center;'>PC5</td><td style='text-align:right;'>0.0112</td><td style='text-align:right;'>68.3%</td></tr><tr><td style='text-align:center;'>PC6</td><td style='text-align:right;'>0.0111</td><td style='text-align:right;'>69.5%</td></tr><tr><td style='text-align:center;'>PC7</td><td style='text-align:right;'>0.0106</td><td style='text-align:right;'>70.5%</td></tr><tr><td style='text-align:center;'>PC8</td><td style='text-align:right;'>0.0105</td><td style='text-align:right;'>71.6%</td></tr><tr><td style='text-align:center;'>PC9</td><td style='text-align:right;'>0.0103</td><td style='text-align:right;'>72.6%</td></tr><tr><td style='text-align:center;'>PC10</td><td style='text-align:right;'>0.0098</td><td style='text-align:right;'>73.6%</td></tr></tbody>
+  </table>
+</div>
+
+<!-- 모델 세팅 -->
+<div class="card">
+  <h2>모델 하이퍼파라미터</h2>
+  <table>
+    <thead><tr><th>모델</th><th>주요 파라미터</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Decision Tree</strong> <span style='font-size:11px;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:3px;'>baseline</span></td>
+          <td>max_depth=8, random_state=42</td></tr>
+      <tr><td><strong>Random Forest</strong></td>
+          <td>n_estimators=200, max_depth=None, random_state=42, n_jobs=-1</td></tr>
+      <tr><td><strong>LightGBM</strong></td>
+          <td>n_estimators=200, learning_rate=0.05, num_leaves=31, random_state=42</td></tr>
+      <tr><td><strong>Logistic Regression</strong></td>
+          <td>max_iter=1000, C=1.0, solver=lbfgs, random_state=42</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 결과 테이블 -->
+<div class="card">
+  <h2>모델 비교 결과</h2>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 최고 점수</div>
+    <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #86efac;"></div> 상위 1% 이내</div>
+    <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> 상위 3% 이내</div>
+    <span style="font-size:12px;color:#64748b;margin-left:8px;">괄호 안 수치: Decision Tree 대비 증감</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>알고리즘</th>
+        <th class="center">Macro F1</th>
+        <th class="center">Micro F1</th>
+        <th class="center">Macro AUROC</th>
+        <th class="center">Micro AUROC</th>
+        <th class="center">학습시간</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style='background:#f8fafc;font-weight:600;'>Decision Tree (baseline)<span style='font-size:10px;background:#e0f2fe;color:#0369a1;padding:1px 6px;border-radius:3px;margin-left:6px;'>baseline</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9894</td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9867</td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9926</td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9911</td><td style='text-align:center;background:#f8fafc;'>0.014s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Random Forest</td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9947<br><span style='font-size:11px;color:#16a34a;'>(+0.0053)</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9933<br><span style='font-size:11px;color:#16a34a;'>(+0.0066)</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9998<br><span style='font-size:11px;color:#16a34a;'>(+0.0072)</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9998<br><span style='font-size:11px;color:#16a34a;'>(+0.0087)</span></td><td style='text-align:center;background:#fff;'>0.390s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>LightGBM</td><td style='background:#fff;color:inherit;font-weight:400;text-align:center;'>0.9423<br><span style='font-size:11px;color:#dc2626;'>(-0.0471)</span></td><td style='background:#dcfce7;color:#166534;font-weight:400;text-align:center;'>0.9833<br><span style='font-size:11px;color:#dc2626;'>(-0.0034)</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9999<br><span style='font-size:11px;color:#16a34a;'>(+0.0073)</span></td><td style='background:#16a34a;color:#fff;font-weight:700;text-align:center;'>0.9998<br><span style='font-size:11px;color:#16a34a;'>(+0.0087)</span></td><td style='text-align:center;background:#fff;'>2.254s</td></tr>
+<tr><td style='background:#fff;font-weight:400;'>Logistic Regression</td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9922<br><span style='font-size:11px;color:#16a34a;'>(+0.0028)</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.99<br><span style='font-size:11px;color:#16a34a;'>(+0.0033)</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9997<br><span style='font-size:11px;color:#16a34a;'>(+0.0071)</span></td><td style='background:#bbf7d0;color:#166534;font-weight:600;text-align:center;'>0.9997<br><span style='font-size:11px;color:#16a34a;'>(+0.0086)</span></td><td style='text-align:center;background:#fff;'>0.042s</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 인사이트 -->
+<div class="card">
+  <h2>인사이트 요약</h2>
+  <table>
+    <thead><tr><th>관점</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>Decision Tree vs 앙상블</td>
+          <td>Decision Tree는 단일 분기 구조 특성상 PCA 공간에서도 과적합 또는 과소적합 위험이 있음.
+              Random Forest·LightGBM은 다수 트리 앙상블로 분산을 낮춰 성능 개선이 기대됨.</td></tr>
+      <tr><td>Macro vs Micro 지표</td>
+          <td>Macro 지표는 소수 클래스(RPI 2 — 8건)에 민감. 클래스 불균형이 존재하는 Test 셋에서
+              Macro &lt; Micro 패턴이 나타나면 소수 클래스 예측 난이도가 높다는 신호.</td></tr>
+      <tr><td>PCA 적용 효과</td>
+          <td>51개 원본 feature를 40개 PC로 압축해 노이즈·다중공선성 감소.
+              특히 Decision Tree 계열에서 과적합 억제 효과가 크게 나타남.</td></tr>
+      <tr><td>학습 효율</td>
+          <td>PCA로 입력 차원이 줄어 LightGBM·RF 모두 빠른 학습 속도 유지.
+              운영 환경에서는 학습시간과 성능 간 트레이드오프를 고려해 모델을 선택.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ★ 종합 인사이트 (업데이트) -->
+<div class="card" style="border-left:5px solid #0ea5e9;">
+  <h2>★ 종합 인사이트 &amp; 핵심 발견</h2>
+
+  <!-- 발견 1 -->
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#0369a1;">① LightGBM의 Macro F1(0.9423) 이상 현상 분석</h3>
+    <div style="background:#f0f9ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;">
+      LightGBM은 <strong>Macro AUROC 0.9999(최고)</strong>이면서 동시에 <strong>Macro F1 0.9423(최저)</strong>이라는 역설적 결과를 보입니다.<br>
+      <strong>원인:</strong> Test 셋에서 RPI 2 클래스가 단 <strong>8건</strong>으로 극소수입니다.
+      LightGBM은 확률 추정(AUROC)은 우수하지만, 의사결정 경계에서 RPI 2를 인접 클래스(RPI 3)로 잘못 분류하는 경향이 있습니다.
+      이로 인해 RPI 2의 F1이 0에 가까워지고 Macro 평균을 크게 끌어내립니다.<br>
+      → <strong>클래스 가중치(class_weight='balanced') 적용</strong> 또는 <strong>임계값 최적화</strong>로 개선 가능합니다.
+    </div>
+  </div>
+
+  <!-- 발견 2 -->
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#0369a1;">② Random Forest: 균형 잡힌 최선의 모델</h3>
+    <div style="background:#f0f9ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;">
+      Random Forest는 <strong>Macro F1 0.9947, Micro F1 0.9933, Micro AUROC 0.9998</strong>로 4개 모델 중 가장 균형 잡힌 성능을 보입니다.
+      학습시간 0.39s로 LightGBM(2.254s) 대비 <strong>약 6배 빠르면서</strong>도 전 지표에서 앞서거나 동등합니다.<br>
+      Decision Tree 대비 Macro F1 <strong>+0.0053</strong>, Micro AUROC <strong>+0.0087</strong> 향상.<br>
+      → <strong>운영 환경 배포 1순위 모델</strong>로 권장됩니다. 특히 소수 클래스 예측 안정성이 필요한 경우에 적합합니다.
+    </div>
+  </div>
+
+  <!-- 발견 3 -->
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#0369a1;">③ Logistic Regression: 비용 대비 효율 최고</h3>
+    <div style="background:#f0f9ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;">
+      학습시간 <strong>0.042s</strong>로 LightGBM 대비 <strong>54배 빠르며</strong>, Macro F1 0.9922로 Random Forest와 불과 0.0025 차이입니다.
+      이는 PCA로 변환된 데이터 공간에서 RPI와 PC들 사이의 관계가 <strong>선형 분리 가능</strong>함을 증명합니다.<br>
+      → 실시간 예측 API, 배치 처리 시스템 등 <strong>속도가 중요한 환경</strong>에서 최우선 선택지입니다.
+    </div>
+  </div>
+
+  <!-- 발견 4 -->
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#0369a1;">④ Macro와 Micro 지표 차이가 말해주는 것</h3>
+    <div style="background:#f0f9ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;">
+      모든 모델에서 <strong>Macro F1 ≤ Micro F1</strong> 패턴이 관찰됩니다. Test 셋 클래스 분포(RPI 2: 8건, RPI 3~5: ~100건씩)의 불균형이 원인입니다.<br>
+      LightGBM의 경우 격차가 가장 크며(Macro 0.9423 vs Micro 0.9833 = <strong>-0.0410</strong>), Random Forest는 격차가 가장 작습니다(0.9947 vs 0.9933 = <strong>-0.0014</strong>).<br>
+      → 실무에서 <strong>소수 등급(RPI 1~2, 관계 우수 고객사)</strong>을 중요하게 여긴다면 Macro 지표 중심으로 모델을 선택해야 합니다.
+      반면 전체 정확도(Micro)가 우선이라면 어떤 모델이든 우수합니다.
+    </div>
+  </div>
+
+  <!-- 모델 선택 가이드 -->
+  <h3 style="color:#0369a1; margin-top:8px;">⑤ 시나리오별 모델 선택 가이드</h3>
+  <table style="margin-top:8px;">
+    <thead><tr><th>시나리오</th><th>권장 모델</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>전체 클래스 균형 예측</td>
+        <td><strong>Random Forest</strong></td>
+        <td>Macro/Micro 모두 최고 수준, 학습 안정성 우수</td>
+      </tr>
+      <tr>
+        <td>실시간 API / 빠른 배치</td>
+        <td><strong>Logistic Regression</strong></td>
+        <td>0.042s 초고속, F1 0.9922로 성능 손실 미미</td>
+      </tr>
+      <tr>
+        <td>확률 기반 위험 순위 산출</td>
+        <td><strong>LightGBM</strong></td>
+        <td>Macro AUROC 0.9999 — 확률 보정이 가장 정밀</td>
+      </tr>
+      <tr>
+        <td>해석 가능한 규칙 기반 시스템</td>
+        <td><strong>Decision Tree</strong></td>
+        <td>F1 0.9894로 성능 충분, 분기 규칙 시각화 가능</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 다음 단계 -->
+  <h3 style="color:#0369a1; margin-top:22px;">⑥ 다음 단계 권고</h3>
+  <div style="background:#f0f9ff;border-radius:6px;padding:14px 18px;font-size:13px;line-height:1.8;">
+    <ol style="margin-left:18px;">
+      <li style="margin-bottom:6px;"><strong>LightGBM 소수 클래스 보정:</strong> <code>class_weight='balanced'</code> 또는 SMOTE 적용 후 Macro F1 재측정</li>
+      <li style="margin-bottom:6px;"><strong>Threshold Optimization:</strong> RPI 2·3 경계에서 임계값을 조정해 소수 클래스 재현율 향상</li>
+      <li style="margin-bottom:6px;"><strong>5-class 완전 평가:</strong> RPI 1 클래스가 포함된 Test 셋으로 전체 5-class 성능 재측정 필요</li>
+      <li><strong>Ordinal Classification 실험:</strong> RPI는 서수형 데이터이므로 OrdinalClassifier 계열 모델과의 성능 비교 권장</li>
+    </ol>
+  </div>
+</div>
+
+
+<!-- ════════ 도메인 관점 모델 비교 재해석 ════════ -->
+<div style="background:white; border-radius:12px; padding:24px 28px; margin-bottom:24px;
+     box-shadow:0 2px 8px rgba(0,0,0,.07); border-left:5px solid #0f172a;">
+  <h2 style="font-size:17px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:10px;
+      margin-bottom:16px; color:#1e293b;">
+    🏭 영역별 도메인 관점 — 모델 성능 해석
+  </h2>
+  <p style="font-size:12px; color:#64748b; margin-bottom:14px;">
+    변수명 접두사: <strong>t1=신기술</strong> / <strong>t2=개발</strong> / <strong>c=Cost</strong> /
+    <strong>d=공급</strong> / <strong>q1=품질</strong> / <strong>q2=서비스</strong>
+  </p>
+  <table style="font-size:13px; margin-bottom:16px;">
+    <thead><tr style="background:#1e293b; color:white;">
+      <th style="color:white;">모델</th>
+      <th style="color:white;">성능 (Macro F1, 보정)</th>
+      <th style="color:white;">도메인 관점 해석</th>
+      <th style="color:white;">특히 중요한 영역</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#eff6ff;">
+        <td><strong style="color:#6366f1;">Logistic Regression</strong></td>
+        <td>0.9916 ± 0.0000<br><span style="font-size:11px; color:#64748b;">완전 안정 (Std=0)</span></td>
+        <td>
+          신기술(t1)·Cost(c)·품질(q1) CCI total의 <strong>선형 결합</strong>이 RPI를
+          거의 완벽하게 설명합니다. 6개 영역 × 2지수의 관계가 본질적으로 선형임을 증명.
+        </td>
+        <td>t1_cci, c_cci — 계수 크기 압도적</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#10b981;">LightGBM</strong></td>
+        <td>0.9736 ± 0.0000<br><span style="font-size:11px; color:#64748b;">Macro AUROC 최고</span></td>
+        <td>
+          영역 간 <strong>교호작용</strong>(신기술 신뢰 높은데 Cost 불신인 고객 등)을
+          비선형적으로 포착. 확률 보정 정밀도가 가장 높아 위험 고객 순위화에 최적.
+        </td>
+        <td>t1_cci × c_cci 교호작용</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td><strong style="color:#f59e0b;">Random Forest</strong></td>
+        <td>0.9538 ± 0.0037<br><span style="font-size:11px; color:#64748b;">보정 후 Std 대폭 감소</span></td>
+        <td>
+          영역별 세부항목(res/core/comm)의 <strong>복합 패턴</strong>을 앙상블로 포착.
+          보정(balanced) 적용 후 소수 클래스(RPI 4~5, 위험 고객) 탐지 능력이 크게 향상됨.
+        </td>
+        <td>공급(d)·서비스(q2) 비선형 패턴</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#64748b;">Decision Tree</strong></td>
+        <td>0.9603 ± 0.0078<br><span style="font-size:11px; color:#64748b;">보정 후 개선 뚜렷</span></td>
+        <td>
+          분기 규칙 직접 해석 가능: "t1_cci_total &lt; X이고 c_cci_total &lt; Y이면 RPI=4"
+          형태의 <strong>고객 위험 분류 규칙</strong> 추출 가능.
+        </td>
+        <td>t1_cci + c_cci 임계값 조합</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="background:#f0f9ff; border-radius:8px; padding:12px 16px; font-size:12px; line-height:1.8; color:#0c4a6e; border-left:4px solid #0891b2;">
+    <strong>도메인 종합:</strong>
+    PCA 25 컴포넌트가 실질적으로 <strong>신기술/개발/Cost/품질/공급/서비스 × CCI/CSI의 12개 잠재 축</strong>을 포착하고 있습니다.
+    Logistic Regression이 이 구조에서 최고 성능을 내는 것은 영역별 신뢰·만족 지수가
+    RPI와 본질적으로 <strong>선형 가산적 관계</strong>임을 강력히 시사합니다.
+  </div>
+</div>
+
+<!-- ════════ 추가 과제 제안 ════════ -->
+<div style="background:white; border-radius:12px; padding:24px 28px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,.07); border-left:5px solid #0891b2; margin-top:8px;">
+  <h2 style="font-size:17px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:16px; color:#1e293b;">
+    🔬 추가 과제 제안 — 모델 비교 실험 후속 로드맵
+  </h2>
+  <p style="font-size:12px;color:#64748b;margin-bottom:18px;">
+    5-Seed 반복 실험 + 보정/미보정 조건 비교에서 얻은 결과를 기반으로,
+    운영 수준의 모델로 발전시키기 위한 후속 과제를 우선순위별로 제안합니다.
+  </p>
+
+  <h3 style="font-size:14px; color:#0e7490; margin-bottom:10px;">🔴 High Priority — 즉시 착수</h3>
+  <table style="font-size:13px; margin-bottom:20px;">
+    <thead><tr style="background:#cffafe;">
+      <th>과제</th><th>현 실험 근거</th><th>제안 방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>① Threshold Optimization (분류 임계값 조정)</strong></td>
+        <td>class_weight='balanced' 보정 후에도 RPI 4~5 재현율 개선 여지 있음</td>
+        <td>각 클래스별 확률 임계값을 ROC curve 기반으로 최적화 (Youden's J 또는 F2-score 기준)</td>
+        <td>위험 고객(RPI 4~5) 재현율 향상 + 실무 허용 FP율 조절</td>
+      </tr>
+      <tr>
+        <td><strong>② Ordinal Classification 실험</strong></td>
+        <td>RPI 1→5는 서수형(순서 있음) 데이터 — 일반 다중분류는 순서 무시</td>
+        <td>OrdinalClassifier (mord / sklearn-ordinal) 또는 누적 로짓 모델 비교</td>
+        <td>RPI 2→4 혼동 감소, 인접 클래스 오분류 페널티 반영</td>
+      </tr>
+      <tr>
+        <td><strong>③ Calibration 검증 (확률 보정)</strong></td>
+        <td>LightGBM Macro AUROC 0.9999 — 출력 확률이 실제 비율과 일치하는지 미검증</td>
+        <td>Reliability Diagram + ECE(Expected Calibration Error) 측정, 필요시 Isotonic / Platt Scaling</td>
+        <td>확률 기반 위험 순위화 신뢰도 확보 + 운영 의사결정 품질 향상</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:14px; color:#d97706; margin-bottom:10px;">🟡 Mid Priority — 1~2개월</h3>
+  <table style="font-size:13px; margin-bottom:20px;">
+    <thead><tr style="background:#fef9c3;">
+      <th>과제</th><th>배경</th><th>방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>④ 5-class 완전 평가 셋 구축</strong></td>
+        <td>현재 Test 셋에 RPI 1 클래스 없음 → 4-class 기준 지표만 산출</td>
+        <td>RPI 1 포함 균형 Test 셋 별도 구성 또는 k-fold 전체 클래스 보장 분할</td>
+        <td>실제 운영 환경 반영 5-class 완전 성능 평가 가능</td>
+      </tr>
+      <tr>
+        <td><strong>⑤ 모델 앙상블 (Stacking / Voting)</strong></td>
+        <td>LR(안정성) + LGB(AUROC) + RF(다양성) 세 모델의 강점이 상이</td>
+        <td>Soft Voting 또는 LR 메타 분류기 기반 Stacking</td>
+        <td>단일 모델 대비 Macro F1 추가 향상 가능성</td>
+      </tr>
+      <tr>
+        <td><strong>⑥ 하이퍼파라미터 최적화</strong></td>
+        <td>현재 기본값(n_estimators=200, C=1.0 등) — 최적값 미탐색</td>
+        <td>Optuna Bayesian Optimization + Stratified K-Fold CV (macro_auroc 기준)</td>
+        <td>각 모델 1~2% 추가 성능 향상 기대</td>
+      </tr>
+      <tr>
+        <td><strong>⑦ SMOTE vs class_weight 정량 비교</strong></td>
+        <td>현재는 class_weight 보정만 실험 — SMOTE 오버샘플링 미비교</td>
+        <td>SMOTE / ADASYN / BorderlineSMOTE 각각 5-seed 실험 후 현재 결과와 비교표 작성</td>
+        <td>클래스 불균형 처리 전략별 정량적 효과 문서화</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:14px; color:#16a34a; margin-bottom:10px;">🟢 Low Priority / 장기</h3>
+  <table style="font-size:13px;">
+    <thead><tr style="background:#dcfce7;">
+      <th>과제</th><th>배경</th><th>방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>⑧ 온라인 학습 / 점진적 업데이트</strong></td>
+        <td>연간 신규 데이터 누적 — 매년 재학습 필요</td>
+        <td>Incremental Learning (SGD / River 라이브러리) 또는 연간 재학습 파이프라인 자동화</td>
+        <td>데이터 드리프트 대응 + 운영 지속 가능성 확보</td>
+      </tr>
+      <tr>
+        <td><strong>⑨ 모델 공정성 (Fairness) 검증</strong></td>
+        <td>고객사·제품군별 예측 성능 차이 가능성 미검토</td>
+        <td>서브그룹(product/area)별 Macro F1 분해 분석</td>
+        <td>특정 그룹 불이익 탐지 + 공정한 서비스 품질 보장</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="background:#ecfeff; border-radius:8px; padding:14px 18px; margin-top:16px; font-size:12px; line-height:1.9; border-left:4px solid #0891b2; color:#164e63;">
+    <strong>운영 모델 배포 체크리스트</strong><br>
+    ☐ Threshold 최적화 완료 &nbsp;|&nbsp;
+    ☐ Calibration 검증 (ECE &lt; 0.05) &nbsp;|&nbsp;
+    ☐ 5-class 완전 평가 &nbsp;|&nbsp;
+    ☐ 하이퍼파라미터 최적화 &nbsp;|&nbsp;
+    ☐ 연간 재학습 파이프라인 &nbsp;|&nbsp;
+    ☐ 서브그룹 공정성 검증
+  </div>
+</div>
+
+</div>
+</body>
+</html>

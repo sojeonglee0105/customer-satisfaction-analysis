@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>고객 만족도 EDA 종합 보고서</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI','Malgun Gothic',Arial,sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px;line-height:1.7;}
+.header{background:linear-gradient(135deg,#064e3b 0%,#059669 100%);color:#fff;padding:36px 48px;}
+.header h1{font-size:26px;font-weight:700;margin-bottom:6px;}
+.header p{opacity:.85;font-size:13px;}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px;}
+.card{background:#fff;border-radius:12px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:28px 32px;margin-bottom:28px;}
+h2{font-size:17px;font-weight:700;color:#064e3b;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
+h3{font-size:14px;font-weight:600;color:#334155;margin:16px 0 8px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#064e3b;color:#fff;padding:11px 14px;text-align:left;font-weight:600;}
+td{padding:10px 14px;border-bottom:1px solid #e2e8f0;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#f0fdf4;}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:16px;}
+.meta-card{background:#f0fdf4;border-radius:8px;padding:14px 18px;}
+.meta-card .val{font-size:22px;font-weight:700;color:#059669;}
+.meta-card .lbl{font-size:12px;color:#64748b;margin-top:2px;}
+.meta-card.warn .val{color:#dc2626;}
+.meta-card.warn{background:#fef2f2;}
+.note{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;font-size:13px;color:#78350f;margin-top:12px;}
+.warn-box{background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;font-size:13px;color:#991b1b;margin-top:12px;}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:12px;font-family:monospace;}
+.plot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:12px;}
+.plot-item{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;}
+.plot-item img{width:100%;display:block;}
+.plot-item p{padding:8px 12px;font-size:12px;color:#64748b;background:#f8fafc;text-align:center;}
+.insight-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 18px;font-size:13px;color:#166534;margin-bottom:16px;line-height:1.8;}
+.diff-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;margin-left:6px;}
+.rpi-bar{height:14px;border-radius:3px;display:inline-block;vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>고객 만족도 EDA 종합 보고서</h1>
+  <p>customer_satisfaction_ver2/customer_satisfaction_full_columns.xlsx &nbsp;|&nbsp; 시트: synthetic_data &nbsp;|&nbsp; 폰트: Malgun Gothic</p>
+</div>
+
+<div class="container">
+
+<!-- 1. 데이터 요약 -->
+<div class="card">
+  <h2>1. 데이터 요약</h2>
+  <div class="meta-grid">
+    <div class="meta-card"><div class="val">1,500</div><div class="lbl">전체 행 수</div></div>
+    <div class="meta-card"><div class="val">53</div><div class="lbl">전체 컬럼 수</div></div>
+    <div class="meta-card"><div class="val">48</div><div class="lbl">수치형 변수 (CSI 24 + CCI 24)</div></div>
+    <div class="meta-card"><div class="val">0</div><div class="lbl">결측치</div></div>
+    <div class="meta-card warn"><div class="val">72</div><div class="lbl">다중공선성 쌍 (|r|≥0.9)</div></div>
+    <div class="meta-card warn"><div class="val">4.7:1</div><div class="lbl">클래스 불균형 (RPI1:RPI5)</div></div>
+  </div>
+
+  <h3>도메인 변수 정의</h3>
+  <table>
+    <thead><tr><th>변수</th><th>유형</th><th>값 범위</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td><code>year</code></td><td>범주형</td><td>2023, 2024, 2025</td><td>조사 년도</td></tr>
+      <tr><td><code>area</code></td><td>범주형</td><td>t1, t2, d, c, q1, q2</td><td>평가 영역 (Touch1/2, Design, Content, Quality1/2)</td></tr>
+      <tr><td><code>product</code></td><td>범주형</td><td>모니터, 노트북, TV, 스마트폰, 자동차</td><td>제품군</td></tr>
+      <tr><td><code>client</code></td><td>범주형</td><td>a ~ e</td><td>고객사명</td></tr>
+      <tr><td><code>rpi</code> ★</td><td>타겟(서수형)</td><td>1~5</td><td>RPI 관계 등급 — 1: 매우 우수, 5: 매우 불량</td></tr>
+      <tr><td><code>*_csi_*</code></td><td>수치형</td><td>0~10</td><td>고객만족지수 — 6영역 × 4항목(res/core/comm/total) = 24개</td></tr>
+      <tr><td><code>*_cci_*</code></td><td>수치형</td><td>−5~+5</td><td>고객충성지수 — 6영역 × 4항목 = 24개</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 2. 타겟 분석 -->
+<div class="card">
+  <h2>2. 타겟 변수 분석 (RPI)</h2>
+  <div class="warn-box">
+    ⚠ <strong>클래스 불균형 감지</strong> — RPI 1(34.7%) vs RPI 5(7.3%), 비율 약 <strong>4.7:1</strong>.
+    Macro 지표 산출 시 소수 클래스(RPI 4~5) 영향이 크며, 모델 학습 시 클래스 가중치 조정이 권장됩니다.
+  </div>
+  <table style="width:560px;margin-top:16px;">
+    <thead><tr><th>RPI 등급</th><th>의미</th><th>샘플 수</th><th>비율</th><th>시각</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>관계 매우 우수</td><td style="text-align:right;font-weight:700;">520</td><td style="text-align:right;">34.67%</td><td><span class="rpi-bar" style="width:140px;background:#16a34a;"></span></td></tr>
+      <tr><td>2</td><td>관계 우수</td><td style="text-align:right;font-weight:700;">430</td><td style="text-align:right;">28.67%</td><td><span class="rpi-bar" style="width:115px;background:#4ade80;"></span></td></tr>
+      <tr><td>3</td><td>관계 보통</td><td style="text-align:right;font-weight:700;">260</td><td style="text-align:right;">17.33%</td><td><span class="rpi-bar" style="width:70px;background:#fbbf24;"></span></td></tr>
+      <tr><td>4</td><td>관계 불량</td><td style="text-align:right;font-weight:700;">180</td><td style="text-align:right;">12.00%</td><td><span class="rpi-bar" style="width:48px;background:#f97316;"></span></td></tr>
+      <tr><td>5</td><td>관계 매우 불량</td><td style="text-align:right;font-weight:700;">110</td><td style="text-align:right;">7.33%</td><td><span class="rpi-bar" style="width:29px;background:#ef4444;"></span></td></tr>
+      <tr style="font-weight:700;"><td colspan="2">합계</td><td style="text-align:right;">1,500</td><td style="text-align:right;">100%</td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="plot-grid" style="margin-top:16px;">
+    <div class="plot-item"><img src="../outputs/plots/01_rpi_class_bar_pie.png" alt="RPI 클래스 분포"/><p>RPI 클래스 분포 — 막대 + 파이</p></div>
+    <div class="plot-item"><img src="../outputs/plots/02_rpi_by_client_boxplot.png" alt="고객사별 RPI"/><p>고객사별 RPI 분포</p></div>
+  </div>
+</div>
+
+<!-- 3. 수치형 변수 -->
+<div class="card">
+  <h2>3. 수치형 변수 분석</h2>
+  <table>
+    <thead><tr><th>항목</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>수치형 변수 수</td><td>48개 (CSI 24 + CCI 24)</td></tr>
+      <tr><td>CSI 값 범위</td><td>0.00 ~ 10.00</td></tr>
+      <tr><td>CCI 값 범위</td><td>−5.00 ~ +5.00</td></tr>
+      <tr><td>상수형 변수</td><td><strong>없음</strong> — 모든 변수 유효</td></tr>
+      <tr><td>기술통계</td><td><code>outputs/tables/numeric_describe_first30.csv</code> 참고</td></tr>
+    </tbody>
+  </table>
+  <div class="plot-grid" style="margin-top:16px;">
+    <div class="plot-item"><img src="../outputs/plots/03_numeric_range_top20.png" alt="수치형 범위 상위 20"/><p>수치형 변수 값 범위 상위 20개</p></div>
+  </div>
+</div>
+
+<!-- 4. 상관관계 -->
+<div class="card">
+  <h2>4. 상관관계 분석</h2>
+  <div class="note">
+    상관 분석은 CSI·CCI에 <strong>열별 Z-score</strong>를 적용한 뒤 산출. 박스플롯은 원 척도 기준.
+  </div>
+
+  <h3 style="margin-top:16px;">RPI와 상관 상위 20개</h3>
+  <div class="warn-box" style="margin-bottom:12px;">
+    ★ 균형 데이터 분석 결과와 다르게, <strong>CSI total과 CCI total이 함께 상위권을 차지</strong>합니다.
+    특히 <code>t1_cci_total</code>이 |r|=0.940으로 1위 — CCI(고객충성지수)도 RPI 예측에 핵심 역할을 합니다.
+  </div>
+  <table>
+    <thead><tr><th>순위</th><th>변수</th><th>|Pearson r|</th><th>유형</th><th>해석</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>t1_cci_total</td><td style="font-weight:700;color:#dc2626;">0.9404</td><td style="color:#854d0e;">CCI</td><td>T1 전체 충성도가 RPI와 가장 강하게 연결</td></tr>
+      <tr><td>2</td><td>t1_csi_total</td><td style="font-weight:700;color:#dc2626;">0.9382</td><td style="color:#1e40af;">CSI</td><td>T1 전체 만족도와 관계 등급 강한 연관</td></tr>
+      <tr><td>3</td><td>d_csi_total</td><td style="font-weight:700;">0.9357</td><td style="color:#1e40af;">CSI</td><td>D 영역 전체 만족</td></tr>
+      <tr><td>4</td><td>c_cci_total</td><td style="font-weight:700;">0.9356</td><td style="color:#854d0e;">CCI</td><td>C 영역 전체 충성도</td></tr>
+      <tr><td>5</td><td>d_cci_total</td><td style="font-weight:700;">0.9351</td><td style="color:#854d0e;">CCI</td><td>D 영역 전체 충성도</td></tr>
+      <tr><td>6</td><td>q1_csi_total</td><td style="font-weight:700;">0.9338</td><td style="color:#1e40af;">CSI</td><td>Q1 영역 전체 만족</td></tr>
+      <tr><td>7</td><td>q2_csi_total</td><td style="font-weight:700;">0.9335</td><td style="color:#1e40af;">CSI</td><td>Q2 영역 전체 만족</td></tr>
+      <tr><td>8</td><td>q1_cci_total</td><td style="font-weight:700;">0.9333</td><td style="color:#854d0e;">CCI</td><td>Q1 영역 전체 충성도</td></tr>
+      <tr><td>9</td><td>c_csi_total</td><td style="font-weight:700;">0.9330</td><td style="color:#1e40af;">CSI</td><td>C 영역 전체 만족</td></tr>
+      <tr><td>10</td><td>t2_csi_total</td><td style="font-weight:700;">0.9321</td><td style="color:#1e40af;">CSI</td><td>T2 영역 전체 만족</td></tr>
+      <tr><td>11</td><td>q2_cci_total</td><td style="font-weight:700;">0.9304</td><td style="color:#854d0e;">CCI</td><td>Q2 영역 전체 충성도</td></tr>
+      <tr><td>12</td><td>t2_cci_total</td><td style="font-weight:700;">0.9292</td><td style="color:#854d0e;">CCI</td><td>T2 영역 전체 충성도</td></tr>
+      <tr><td colspan="5" style="text-align:center;color:#64748b;font-size:12px;">13~20위: 하위 항목(res/core/comm) CSI 변수 — |r| 0.889~0.895</td></tr>
+    </tbody>
+  </table>
+  <div class="plot-grid" style="margin-top:16px;">
+    <div class="plot-item"><img src="../outputs/plots/04_corr_with_target_top20.png" alt="상관 상위 20"/><p>RPI와 상관 상위 20개 변수</p></div>
+    <div class="plot-item"><img src="../outputs/plots/05_heatmap_top30.png" alt="히트맵 상위 30"/><p>상위 30개 변수 히트맵</p></div>
+  </div>
+
+  <h3 style="margin-top:16px;">다중공선성 체크 (|r| ≥ 0.9)</h3>
+  <div class="warn-box">
+    ⚠ <strong>72쌍의 강한 다중공선성 감지</strong> — res/core/comm/total 간 내부 공선성 + CSI-CCI 간 공선성이 복합적으로 존재.
+    회귀 계수 불안정 위험 있음. <strong>PCA 또는 대표 변수 선택 필수.</strong>
+  </div>
+  <table style="margin-top:12px;width:600px;">
+    <thead><tr><th>var1</th><th>var2</th><th>|r|</th></tr></thead>
+    <tbody>
+      <tr><td>t1_csi_res</td><td>t1_csi_total</td><td>0.9330</td></tr>
+      <tr><td>t1_csi_core</td><td>t1_csi_total</td><td>0.9344</td></tr>
+      <tr><td>t1_csi_comm</td><td>t1_csi_total</td><td>0.9301</td></tr>
+      <tr><td>t1_csi_total</td><td>t1_cci_total</td><td>0.9074</td></tr>
+      <tr><td>t1_csi_total</td><td>t2_csi_total</td><td>0.9194</td></tr>
+      <tr><td colspan="3" style="text-align:center;color:#64748b;font-size:12px;">... 총 72쌍 — outputs/tables/multicollinearity_pairs.csv 참고</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 5. 클래스별 분포 -->
+<div class="card">
+  <h2>5. 클래스별 분포 비교</h2>
+  <div class="plot-grid">
+    <div class="plot-item" style="grid-column:1/-1;">
+      <img src="../outputs/plots/06_boxplot_top6_by_class.png" alt="클래스별 박스플롯"/>
+      <p>RPI 상관 상위 6개 변수의 클래스별 분포 (원 척도)</p>
+    </div>
+  </div>
+</div>
+
+<!-- 6. 인사이트 요약 -->
+<div class="card">
+  <h2>6. EDA 인사이트 요약</h2>
+  <table>
+    <thead><tr><th>항목</th><th>균형 데이터(ver4 balanced)</th><th>원본 데이터(ver2 original)</th><th>차이</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>RPI 클래스 분포</td>
+        <td>균등 (각 300건)</td>
+        <td>불균형 (520→110, 4.7:1)</td>
+        <td><span class="diff-badge">중요 차이</span></td>
+      </tr>
+      <tr>
+        <td>최고 상관 변수</td>
+        <td>t1_csi_comm (r=0.847, CSI)</td>
+        <td>t1_cci_total (r=0.940, CCI)</td>
+        <td><span class="diff-badge">CCI 부상</span></td>
+      </tr>
+      <tr>
+        <td>상위 12개 상관 변수</td>
+        <td>전부 CSI 계열</td>
+        <td>CSI total 6 + CCI total 6 혼재</td>
+        <td><span class="diff-badge">중요 차이</span></td>
+      </tr>
+      <tr>
+        <td>다중공선성 쌍</td>
+        <td>0쌍</td>
+        <td><strong>72쌍</strong></td>
+        <td><span class="diff-badge">심각</span></td>
+      </tr>
+      <tr>
+        <td>PCA 컴포넌트 수 (95%)</td>
+        <td>40개</td>
+        <td>25개</td>
+        <td>원본이 더 압축 가능</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ★ 종합 인사이트 -->
+<div class="card" style="border-left:5px solid #059669;">
+  <h2>★ 종합 인사이트 &amp; 핵심 발견</h2>
+
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#065f46;">① CCI(고객충성지수)가 원본 데이터에서 RPI 예측의 핵심 변수</h3>
+    <div class="insight-box">
+      균형 데이터 분석에서는 CCI가 상위 20위 안에 없었으나, <strong>원본 데이터에서는 CCI total 6개가 상위 12위 안에 모두 포함</strong>됩니다.
+      특히 <code>t1_cci_total</code>(r=0.940)이 1위입니다.<br>
+      이는 데이터 생성 방식의 차이 때문입니다. 원본 데이터는 <strong>CSI와 CCI가 모두 RPI와 자연스러운 공동 변화(co-variation)</strong>를 보이며,
+      이것이 현실에 더 가까운 데이터 구조입니다.<br>
+      → 원본 기준으로는 <strong>CSI와 CCI를 함께 사용</strong>하는 것이 필수입니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#065f46;">② _total 변수가 sub-component(res/core/comm)보다 강한 예측력</h3>
+    <div class="insight-box">
+      상위 12위가 모두 <code>_total</code> 변수입니다. res/core/comm은 13위부터 등장하며 |r|이 0.89 수준으로 낮습니다.
+      이는 <strong>각 영역의 종합 점수(total)가 개별 항목보다 RPI와 더 직접적으로 연결</strong>됨을 의미합니다.<br>
+      → 모델링 시 <code>*_total</code> 12개(CSI 6 + CCI 6)만으로 Feature set을 구성하면 변수 수를 51→12로 줄이면서도 핵심 예측력을 유지할 수 있습니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#065f46;">③ 72쌍의 다중공선성: PCA가 사실상 필수</h3>
+    <div class="insight-box">
+      res/core/comm → total 간 구조적 관계(|r| 0.93 수준), total 간 영역별 공선성(|r| 0.92 수준),
+      CSI-CCI 간 공선성(|r| 0.91 수준)이 복합적으로 존재합니다. 총 72쌍.<br>
+      선형 모델(LR, Ridge 등)에서 직접 사용 시 계수 불안정성이 발생할 수 있습니다.
+      <strong>PCA로 25개 컴포넌트(95.3% 분산)로 압축하면 다중공선성이 완전히 해소</strong>됩니다.<br>
+      → Feature Engineering 실험에서 PCA가 가장 좋은 성능을 낸 이유와 직접 연결됩니다.
+    </div>
+  </div>
+
+  <div style="margin-bottom:22px;">
+    <h3 style="color:#065f46;">④ 클래스 불균형(4.7:1): 모델 선택 및 평가 전략 필요</h3>
+    <div class="insight-box">
+      RPI 1(34.67%) vs RPI 5(7.33%)로 약 4.7:1 불균형이 존재합니다.
+      1:100과 같은 극심한 수준은 아니지만, <strong>소수 클래스(RPI 4~5)는 관계 위험 고객사이므로 비즈니스적으로 중요</strong>합니다.<br>
+      → <code>class_weight='balanced'</code> 적용, SMOTE 등 오버샘플링, 또는 Macro 지표 중심 평가를 채택해야 합니다.
+    </div>
+  </div>
+
+  <h3 style="color:#065f46;">⑤ 다음 단계 권고</h3>
+  <table style="margin-top:8px;">
+    <thead><tr><th>우선순위</th><th>권고 내용</th><th>기대 효과</th></tr></thead>
+    <tbody>
+      <tr><td style="text-align:center;color:#dc2626;font-weight:700;">High</td>
+          <td><code>*_total</code> 12개(CSI 6 + CCI 6)만으로 단순 모델 재실험</td>
+          <td>변수 51→12 축소, 다중공선성 해소, 해석력 극대화</td></tr>
+      <tr><td style="text-align:center;color:#dc2626;font-weight:700;">High</td>
+          <td>PCA(25 components) 파이프라인 적용 — Feature Eng 실험 최고 전략</td>
+          <td>다중공선성 72쌍 완전 해소, 노이즈 제거</td></tr>
+      <tr><td style="text-align:center;color:#f59e0b;font-weight:700;">Mid</td>
+          <td>클래스 가중치 또는 SMOTE 적용 후 Macro F1 재측정</td>
+          <td>소수 클래스(RPI 4~5, 관계 위험 고객사) 예측 성능 향상</td></tr>
+      <tr><td style="text-align:center;color:#16a34a;font-weight:700;">Low</td>
+          <td>영역별(t1/t2/d/c/q1/q2) CSI·CCI 트렌드 시계열 분석</td>
+          <td>고객사 관계 악화 조기 경보 시스템 구축</td></tr>
+    </tbody>
+  </table>
+
+<!-- ════════ 도메인 관점 EDA 재해석 ════════ -->
+<div class="card" style="border-left:5px solid #0f172a; margin-bottom:24px;">
+  <h2 style="color:#0f172a;">🏭 영역별 도메인 관점 EDA 재해석</h2>
+  <p style="font-size:12px; color:#64748b; margin-bottom:14px;">
+    변수명 접두사 의미: <strong>t1=신기술</strong> / <strong>t2=개발</strong> / <strong>c=Cost</strong> /
+    <strong>d=공급</strong> / <strong>q1=품질</strong> / <strong>q2=서비스</strong>
+  </p>
+  <table style="font-size:13px; margin-bottom:16px;">
+    <thead><tr style="background:#1e293b; color:white;">
+      <th style="color:white;">영역</th><th style="color:white;">CCI 상관 순위<br>(with RPI)</th>
+      <th style="color:white;">CSI 상관 순위<br>(with RPI)</th><th style="color:white;">데이터 분포 특성</th>
+      <th style="color:white;">주요 인사이트</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#eff6ff;">
+        <td><strong style="color:#1d4ed8;">신기술 (t1)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#1d4ed8;">1위 계열</td>
+        <td style="text-align:center; color:#166534;">Top-5</td>
+        <td>RPI 클래스 간 분포 가장 명확히 분리</td>
+        <td>미래 기술 방향성 신뢰 = 재구매 핵심 선행지표</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#9a3412;">Cost (c)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#9a3412;">2위 계열</td>
+        <td style="text-align:center; color:#166534;">Top-10</td>
+        <td>RPI 1→5로 갈수록 CCI 뚜렷한 우하향 패턴</td>
+        <td>가격 불신 = 이탈 강력 신호 — 가격 투명성 정책 시급</td>
+      </tr>
+      <tr style="background:#fff1f2;">
+        <td><strong style="color:#9f1239;">품질 (q1)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#9f1239;">3위 계열</td>
+        <td style="text-align:center; color:#166534;">Top-15</td>
+        <td>이상치 다수 — 일부 고객사 품질 불만족 집중</td>
+        <td>품질 이슈 고객사 집중 관리 프로그램 필요</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#166534;">개발 (t2)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#166534;">4위 계열</td>
+        <td style="text-align:center; color:#166534;">Top-10</td>
+        <td>t1과 높은 상관(r≥0.8) — 신기술·개발 동반 인식</td>
+        <td>신기술·개발 영역을 통합 R&amp;D 파트너십으로 관리 권장</td>
+      </tr>
+      <tr style="background:#fdf4ff;">
+        <td><strong style="color:#6b21a8;">공급 (d)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#6b21a8;">6위 계열</td>
+        <td style="text-align:center; color:#64748b;">하위권</td>
+        <td>변동성 큼 — 납기 이슈 발생 시 급격히 낮아짐</td>
+        <td>납기 지연 이벤트가 CCI 급락 트리거 — 예외 관리 중요</td>
+      </tr>
+      <tr>
+        <td><strong style="color:#854d0e;">서비스 (q2)</strong></td>
+        <td style="text-align:center; font-weight:700; color:#854d0e;">9위 계열</td>
+        <td style="text-align:center; color:#64748b;">하위권</td>
+        <td>클래스 간 분포 중첩 많음 — RPI 변별력 낮음</td>
+        <td>서비스 만족이 기본 기대치 수준 — 차별화 포인트 낮음</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="background:#f8fafc; border-radius:8px; padding:12px 16px; font-size:12px; line-height:1.8; color:#334155; border-left:4px solid #0f172a;">
+    <strong>EDA 도메인 종합 발견:</strong>
+    고객 재구매는 <strong>신기술 신뢰 → Cost 투명성 → 품질 일관성 → 개발 협력</strong> 순의 가치 사슬로 결정됩니다.
+    서비스(q2) 만족보다 신기술(t1) 신뢰 구축이 4배 이상 강한 재구매 예측력을 가집니다.
+    이는 LG B2B 고객이 "현재 경험"보다 "미래 파트너십 가능성"을 더 중시함을 의미합니다.
+  </div>
+</div>
+
+</div>
+
+<!-- ════════ 추가 과제 제안 ════════ -->
+<div class="card" style="border-left:5px solid #0891b2; margin-top:8px;">
+  <h2 style="color:#0e7490;">🔬 추가 과제 제안 — EDA 결과 기반 후속 분석 로드맵</h2>
+  <p style="font-size:12px;color:#64748b;margin-bottom:20px;">
+    본 EDA에서 확인된 데이터 특성(클래스 불균형·다중공선성·시계열 구조·고객사별 편차)을 토대로
+    실질적 가치를 창출할 수 있는 후속 과제를 우선순위별로 제안합니다.
+  </p>
+
+  <!-- 우선순위 HIGH -->
+  <h3 style="color:#0e7490; font-size:14px; margin-bottom:10px;">🔴 High Priority — 즉시 착수 권장</h3>
+  <table style="margin-bottom:20px; font-size:13px;">
+    <thead>
+      <tr style="background:#cffafe;">
+        <th>과제</th><th>배경 (EDA 근거)</th><th>분석 방법</th><th>기대 산출물</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>① _total 12변수 전용 단순화 모델 구축</strong></td>
+        <td>Top 중요도 변수 8/10이 _total 계열, 세부 항목은 r≥0.9 다중공선성 72쌍</td>
+        <td>CSI total 6개 + CCI total 6개로 모델 재학습 후 성능 비교</td>
+        <td>51변수 → 12변수 압축 + 해석 가능한 경량 운영 모델</td>
+      </tr>
+      <tr>
+        <td><strong>② 고객사별 RPI 추세 분석 (패널 데이터)</strong></td>
+        <td>3개년 시계열 구조 존재, 고객사별 RPI 분포 편차 확인</td>
+        <td>고객사 × 연도 패널 구성 → 선형혼합모형 / 고객사 고정효과 모델</td>
+        <td>고객사별 RPI 변화 트렌드 리포트 + 악화 조기경보 기준 수립</td>
+      </tr>
+      <tr>
+        <td><strong>③ 소수 클래스(RPI 4~5) 심층 프로파일링</strong></td>
+        <td>RPI 4(12.1%) + RPI 5(7.3%) = 관계 위험 고객사, 예측 어려움</td>
+        <td>RPI 4~5 고객사 특성 탐색(어떤 CSI/CCI 패턴?) + 이진 분류(위험/정상)</td>
+        <td>위험 고객사 조기 탐지 이진 분류기 + 특성 프로필</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 우선순위 MID -->
+  <h3 style="color:#d97706; font-size:14px; margin-bottom:10px;">🟡 Mid Priority — 1~2개월 내</h3>
+  <table style="margin-bottom:20px; font-size:13px;">
+    <thead>
+      <tr style="background:#fef9c3;">
+        <th>과제</th><th>배경</th><th>분석 방법</th><th>기대 산출물</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>④ CSI↔CCI 인과 구조 분석</strong></td>
+        <td>CSI(만족도)와 CCI(신뢰도) 간 상관이 매우 높으나 RPI에 대한 기여 방향이 다름</td>
+        <td>구조방정식 모형(SEM) 또는 매개효과 분석(만족→신뢰→재구매)</td>
+        <td>CSI-CCI-RPI 인과 다이어그램 + 개입 포인트 식별</td>
+      </tr>
+      <tr>
+        <td><strong>⑤ 연도별(t1/t2/c/q1/q2) 측정 시점 효과 검증</strong></td>
+        <td>t1 CCI total이 전체 1위 — 특정 시점 측정값의 예측력이 높음</td>
+        <td>시점별 모델 독립 학습 → AUC 비교, 정보 감소 분석(시간 경과 효과)</td>
+        <td>최적 측정 시점 가이드 + 불필요한 측정 주기 제거 방안</td>
+      </tr>
+      <tr>
+        <td><strong>⑥ 제품군/지역 별 서브그룹 모델 비교</strong></td>
+        <td>product·area 변수는 모델 중요도 낮으나 그룹별 패턴 차이 가능성</td>
+        <td>product 그룹별 분리 학습 → 성능·변수 중요도 비교</td>
+        <td>그룹별 맞춤 예측 모델 타당성 검토 보고서</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 우선순위 LOW -->
+  <h3 style="color:#16a34a; font-size:14px; margin-bottom:10px;">🟢 Low Priority — 장기 / 탐색적</h3>
+  <table style="font-size:13px;">
+    <thead>
+      <tr style="background:#dcfce7;">
+        <th>과제</th><th>배경</th><th>분석 방법</th><th>기대 산출물</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>⑦ 외부 데이터 연계 분석</strong></td>
+        <td>고객사의 산업 경기·실적이 RPI에 영향 가능성 (customer_intelligence_scraper 활용)</td>
+        <td>고객사 재무/공시 데이터 크롤링 → RPI와 상관 분석</td>
+        <td>거시경제·고객사 실적과 RPI의 연관성 보고서</td>
+      </tr>
+      <tr>
+        <td><strong>⑧ 이상치 고객사 심층 케이스 스터디</strong></td>
+        <td>박스플롯에서 극단 이상치로 탐지된 고객사 존재</td>
+        <td>이상치 고객사 선별 → CSI/CCI 세부 항목 원인 분석</td>
+        <td>이상 고객사 대응 매뉴얼 + 케이스 스터디 문서</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 과제 연계 흐름 -->
+  <div style="background:#ecfeff; border-radius:8px; padding:16px 18px; margin-top:18px; font-size:12px; line-height:1.9; border-left:4px solid #0891b2;">
+    <strong style="color:#0e7490; font-size:13px;">과제 연계 흐름</strong><br>
+    EDA(현재) → <strong>① 경량 모델</strong> + <strong>② 패널 추세</strong> 병행 착수<br>
+    → <strong>③ 위험 고객 이진 분류</strong> 운영 → <strong>④ 인과 구조 확인</strong>으로 설문 개편<br>
+    → <strong>⑤ 측정 시점 최적화</strong>로 조사 비용 절감 → <strong>⑦ 외부 데이터</strong>로 선제 대응 고도화
+  </div>
+</div>
+
+</div>
+</body>
+</html>

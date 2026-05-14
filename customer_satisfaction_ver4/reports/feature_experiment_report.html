@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Feature Engineering Experiment Report</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;color:#1e293b;font-size:14px;line-height:1.6;}
+  .header{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:36px 48px;}
+  .header h1{font-size:26px;font-weight:700;margin-bottom:6px;}
+  .header p{opacity:.85;font-size:13px;}
+  .container{max-width:1100px;margin:0 auto;padding:32px 24px;}
+  .card{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:28px 32px;margin-bottom:28px;}
+  h2{font-size:17px;font-weight:700;color:#1e3a5f;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #e2e8f0;}
+  h3{font-size:14px;font-weight:600;color:#334155;margin:16px 0 8px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:#1e3a5f;color:#fff;padding:10px 14px;text-align:left;font-weight:600;}
+  td{padding:9px 14px;border-bottom:1px solid #e2e8f0;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#f1f5f9;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+  .tag-all{background:#dbeafe;color:#1e40af;}
+  .tag-fs{background:#fef9c3;color:#854d0e;}
+  .tag-pca{background:#f3e8ff;color:#6b21a8;}
+  .meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+  .meta-card{background:#f1f5f9;border-radius:8px;padding:14px 18px;}
+  .meta-card .val{font-size:22px;font-weight:700;color:#2563eb;}
+  .meta-card .lbl{font-size:12px;color:#64748b;margin-top:2px;}
+  .note{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:4px;font-size:13px;color:#78350f;margin-top:12px;}
+  .reason-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 18px;font-size:13px;color:#166534;margin-bottom:16px;}
+  .reason-box ul{margin-left:18px;margin-top:6px;}
+  .reason-box li{margin-bottom:4px;}
+  .legend{display:flex;gap:16px;font-size:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .dot{width:12px;height:12px;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Feature Engineering Experiment Report</h1>
+  <p>Customer Satisfaction RPI 예측 &nbsp;|&nbsp; 3 Experiments × 3 Models &nbsp;|&nbsp; Macro AUROC &amp; Macro F1</p>
+</div>
+
+<div class="container">
+
+<!-- 데이터 요약 -->
+<div class="card">
+  <h2>데이터 요약</h2>
+  <div class="meta-grid">
+    <div class="meta-card"><div class="val">1,050</div><div class="lbl">Train 샘플 수</div></div>
+    <div class="meta-card"><div class="val">450</div><div class="lbl">Test 샘플 수</div></div>
+    <div class="meta-card"><div class="val">51</div><div class="lbl">전체 Feature 수</div></div>
+    <div class="meta-card"><div class="val">5</div><div class="lbl">RPI 클래스 수 (1~5)</div></div>
+  </div>
+  <div class="note">
+    ⚠ Test 셋은 2025년 후반 데이터(300행)로, <strong>RPI 1 클래스가 존재하지 않습니다.</strong>
+    이로 인해 Macro F1·AUROC는 실제 4개 클래스(2~5) 기준으로 산출됩니다.
+  </div>
+</div>
+
+<!-- 실험 설계 -->
+<div class="card">
+  <h2>실험 설계</h2>
+  <table>
+    <thead><tr><th>실험</th><th>Feature 전략</th><th>Feature 수</th><th>전처리</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag tag-all">Exp 1</span></td><td>전체 Feature 사용</td><td>51</td><td>범주형 Label Encoding, LR은 StandardScaler 추가</td></tr>
+      <tr><td><span class="tag tag-fs">Exp 2</span></td><td>Feature Selection (MI + Pearson)</td><td>48</td><td>동일</td></tr>
+      <tr><td><span class="tag tag-pca">Exp 3</span></td><td>PCA 차원 축소 (분산 95%)</td><td>25 components</td><td>StandardScaler → PCA</td></tr>
+    </tbody>
+  </table>
+  <h3 style="margin-top:16px;">공통 모델 세팅</h3>
+  <table>
+    <thead><tr><th>모델</th><th>주요 하이퍼파라미터</th></tr></thead>
+    <tbody>
+      <tr><td>LightGBM</td><td>n_estimators=200, learning_rate=0.05, num_leaves=31, random_state=42</td></tr>
+      <tr><td>Logistic Regression</td><td>max_iter=1000, C=1.0, solver=lbfgs, random_state=42 (multinomial via OvR)</td></tr>
+      <tr><td>Decision Tree</td><td>max_depth=8, random_state=42</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Exp 2 Feature Selection 근거 -->
+<div class="card">
+  <h2><span class="tag tag-fs">Exp 2</span>&nbsp; Feature Selection 선택 근거</h2>
+  <div class="reason-box">
+    <strong>선택 기준 (OR 조건 — 둘 중 하나라도 충족하면 선택)</strong>
+    <ul>
+      <li><strong>Mutual Information (MI) ≥ 평균 MI (0.7164)</strong>
+          &nbsp;— 비선형 관계 포함 target과의 정보량 기준.
+          MI가 평균 이상인 변수는 클래스 구분에 실질적 기여를 하는 것으로 판단.</li>
+      <li><strong>Pearson |r| ≥ 0.15</strong>
+          &nbsp;— 선형 상관이 일정 수준 이상인 변수 보강.
+          MI만으로 포착 못하는 선형 신호를 추가로 포함.</li>
+    </ul>
+    <br>
+    → MI ≥ 0.7164를 충족하는 변수 21개, Pearson |r| ≥ 0.15를 충족하는 변수 48개,
+    합집합으로 최종 <strong>48개 변수</strong>를 선택.
+  </div>
+
+  <h3>Feature 중요도 상위 20 (MI 기준)</h3>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#f0fdf4;border:1px solid #bbf7d0;"></div> 선택된 Feature</div>
+    <div class="legend-item"><div class="dot" style="background:#fff;border:1px solid #e2e8f0;"></div> 미선택 Feature</div>
+  </div>
+  <table>
+    <thead><tr><th>Feature</th><th>Mutual Information</th><th>Pearson |r|</th><th>선택</th></tr></thead>
+    <tbody><tr style='background:#f0fdf4;'><td>t1_cci_total</td><td>1.0013</td><td>0.9407</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>c_cci_total</td><td>0.9981</td><td>0.9364</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t1_csi_total</td><td>0.9636</td><td>0.9396</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q1_cci_total</td><td>0.9605</td><td>0.9331</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>d_cci_total</td><td>0.9580</td><td>0.9372</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q2_cci_total</td><td>0.9521</td><td>0.9312</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t2_cci_total</td><td>0.9473</td><td>0.9310</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>d_csi_total</td><td>0.9439</td><td>0.9375</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t2_csi_total</td><td>0.9352</td><td>0.9332</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>c_csi_total</td><td>0.9323</td><td>0.9347</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q2_csi_total</td><td>0.9175</td><td>0.9321</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q1_csi_total</td><td>0.9115</td><td>0.9336</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q2_csi_comm</td><td>0.7521</td><td>0.8994</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t1_csi_core</td><td>0.7372</td><td>0.8933</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q1_csi_res</td><td>0.7369</td><td>0.8918</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>q1_csi_comm</td><td>0.7353</td><td>0.8910</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t1_csi_comm</td><td>0.7301</td><td>0.8885</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t1_csi_res</td><td>0.7251</td><td>0.8877</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t2_csi_res</td><td>0.7240</td><td>0.8892</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr>
+<tr style='background:#f0fdf4;'><td>t2_csi_core</td><td>0.7226</td><td>0.8906</td><td style='text-align:center;color:#16a34a;font-weight:700;'>✔</td></tr></tbody>
+  </table>
+</div>
+
+<!-- Exp 3 PCA -->
+<div class="card">
+  <h2><span class="tag tag-pca">Exp 3</span>&nbsp; PCA 차원 축소 결과</h2>
+  <div class="meta-grid">
+    <div class="meta-card"><div class="val">51</div><div class="lbl">원본 Feature 수</div></div>
+    <div class="meta-card"><div class="val">25</div><div class="lbl">선택된 PC 수 (95% 분산)</div></div>
+    <div class="meta-card"><div class="val">95.3%</div><div class="lbl">설명 분산 비율</div></div>
+  </div>
+  <h3>PC별 누적 분산 기여도 (상위 10)</h3>
+  <table>
+    <thead><tr><th>Component</th><th>Individual Variance</th><th>Cumulative</th></tr></thead>
+    <tbody><tr><td>PC1</td><td>0.7847</td><td>78.5%</td></tr><tr><td>PC2</td><td>0.0210</td><td>80.6%</td></tr><tr><td>PC3</td><td>0.0198</td><td>82.6%</td></tr><tr><td>PC4</td><td>0.0190</td><td>84.5%</td></tr><tr><td>PC5</td><td>0.0071</td><td>85.2%</td></tr><tr><td>PC6</td><td>0.0070</td><td>85.9%</td></tr><tr><td>PC7</td><td>0.0065</td><td>86.5%</td></tr><tr><td>PC8</td><td>0.0064</td><td>87.2%</td></tr><tr><td>PC9</td><td>0.0061</td><td>87.8%</td></tr><tr><td>PC10</td><td>0.0058</td><td>88.3%</td></tr></tbody>
+  </table>
+</div>
+
+<!-- 실험 결과 -->
+<div class="card">
+  <h2>실험 결과 비교표</h2>
+  <div class="legend">
+    <div class="legend-item"><div class="dot" style="background:#16a34a;"></div> 최고 점수</div>
+    <div class="legend-item"><div class="dot" style="background:#bbf7d0;border:1px solid #16a34a;"></div> Top 3% 이내</div>
+    <div class="legend-item"><div class="dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></div> Top 7% 이내</div>
+  </div>
+  <table><thead><tr><th>Experiment</th><th>Model</th><th>Macro F1</th><th>Macro AUROC</th></tr></thead><tbody><tr><td>Exp 1: All Features (51 cols)</td><td>LightGBM</td><td style='background:#dcfce7;'>0.9638</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9982</td></tr>
+<tr><td>Exp 1: All Features (51 cols)</td><td>Logistic Regression</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9839</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9998</td></tr>
+<tr><td>Exp 1: All Features (51 cols)</td><td>Decision Tree</td><td style=''>0.8302</td><td style=''>0.9168</td></tr>
+<tr><td>Exp 2: Feature Selection (48 cols)</td><td>LightGBM</td><td style='background:#dcfce7;'>0.9601</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9975</td></tr>
+<tr><td>Exp 2: Feature Selection (48 cols)</td><td>Logistic Regression</td><td style='background:#dcfce7;'>0.9449</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.998</td></tr>
+<tr><td>Exp 2: Feature Selection (48 cols)</td><td>Decision Tree</td><td style=''>0.8349</td><td style=''>0.9208</td></tr>
+<tr><td>Exp 3: PCA (25 components, 95.3% var)</td><td>LightGBM</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9699</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9995</td></tr>
+<tr><td>Exp 3: PCA (25 components, 95.3% var)</td><td>Logistic Regression</td><td style='background:#16a34a;color:#fff;font-weight:700;'>0.9937</td><td style='background:#16a34a;color:#fff;font-weight:700;'>0.9999</td></tr>
+<tr><td>Exp 3: PCA (25 components, 95.3% var)</td><td>Decision Tree</td><td style='background:#dcfce7;'>0.9583</td><td style='background:#bbf7d0;color:#166534;font-weight:600;'>0.9742</td></tr></tbody></table>
+</div>
+
+<!-- 해석 -->
+<div class="card">
+  <h2>인사이트 요약</h2>
+  <table>
+    <thead><tr><th>관점</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>Feature 수 영향</td>
+          <td>전체 51개 feature 중 상당수가 중복 정보를 담고 있을 가능성이 높음 (CSI·CCI 하위 항목 구조상 동일 영역의 res/core/comm/total이 공존). Feature Selection·PCA로 압축 시 노이즈 감소 효과 기대.</td></tr>
+      <tr><td>Feature Selection 의의</td>
+          <td>MI + Pearson 조합으로 비선형·선형 신호를 모두 고려. 선택된 48개 변수는 원본 대비 약 94% 수준으로 압축되면서도 핵심 정보를 보존.</td></tr>
+      <tr><td>PCA 의의</td>
+          <td>25개 PC로 원본 51개 변수의 95.3% 분산을 설명. 모델 간 성능 변화 폭이 크다면 원본 feature 공간의 다중공선성 문제를 간접 확인 가능.</td></tr>
+      <tr><td>주의 사항</td>
+          <td>Test 셋에 RPI 1 클래스가 없어 macro 지표가 4-class 기준으로 산출됨. 실제 서비스에서는 전체 5-class 평가가 필요.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ════════ 도메인 관점 Feature Engineering 재해석 ════════ -->
+<div style="background:white; border-radius:12px; padding:24px 28px; margin-bottom:24px;
+     box-shadow:0 2px 8px rgba(0,0,0,.07); border-left:5px solid #0f172a;">
+  <h2 style="font-size:17px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:10px;
+      margin-bottom:16px; color:#1e293b;">
+    🏭 영역별 도메인 관점 Feature Engineering 재해석
+  </h2>
+  <p style="font-size:12px; color:#64748b; margin-bottom:14px;">
+    변수명 접두사: <strong>t1=신기술</strong> / <strong>t2=개발</strong> / <strong>c=Cost</strong> /
+    <strong>d=공급</strong> / <strong>q1=품질</strong> / <strong>q2=서비스</strong>
+  </p>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:13px;">
+    <div style="background:#eff6ff; border-radius:8px; padding:12px 16px; border-left:4px solid #2563eb;">
+      <strong style="color:#1d4ed8;">PCA가 최고 성능인 이유 — 도메인 관점</strong><br>
+      <span style="color:#1e3a5f; line-height:1.8;">
+        t1(신기술)·t2(개발)·c(Cost)·q1(품질)·q2(서비스)·d(공급)의
+        res/core/comm 세부 항목이 동일 영역 내에서 r≥0.9 다중공선성을 형성합니다.
+        PCA는 <strong>6개 영역 × 2지수(CSI/CCI) = 12개 잠재 축</strong>으로
+        자연스럽게 압축되므로 성능이 가장 우수합니다.
+      </span>
+    </div>
+    <div style="background:#fff7ed; border-radius:8px; padding:12px 16px; border-left:4px solid #ea580c;">
+      <strong style="color:#9a3412;">Feature Selection 한계 — 도메인 관점</strong><br>
+      <span style="color:#7c2d12; line-height:1.8;">
+        MI + Pearson 기준 Feature Selection이 48개를 선택했지만
+        영역별 세부항목(res/core/comm)을 개별로 다루어 <strong>동일 영역 내 중복 정보</strong>를 제거하지 못합니다.
+        도메인 지식 기반으로 "_total만 사용"하는 전략이 더 효율적일 수 있습니다.
+      </span>
+    </div>
+    <div style="background:#f0fdf4; border-radius:8px; padding:12px 16px; border-left:4px solid #16a34a;">
+      <strong style="color:#166534;">권장: 영역 총점 피처셋 (12변수)</strong><br>
+      <span style="color:#14532d; line-height:1.8;">
+        t1/t2/c/d/q1/q2 각 영역의 csi_total + cci_total = <strong>12개 총점 변수</strong>만 사용.
+        영역 내 다중공선성 완전 해소 + 비즈니스 해석력 극대화.
+        PCA 없이도 Logistic Regression이 높은 성능을 낼 것으로 예측됩니다.
+      </span>
+    </div>
+    <div style="background:#fdf4ff; border-radius:8px; padding:12px 16px; border-left:4px solid #9333ea;">
+      <strong style="color:#6b21a8;">다음 실험: 영역별 중요도 개별 분석</strong><br>
+      <span style="color:#3b0764; line-height:1.8;">
+        신기술(t1) vs Cost(c) vs 품질(q1) 영역별로 단독 모델 성능 측정 →
+        "어떤 영역만으로도 RPI를 예측할 수 있는가?" 검증.
+        영역별 독립 예측 모델로 세분화된 CS 전략 수립 가능합니다.
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ 추가 과제 제안 ════════ -->
+<div style="background:white; border-radius:12px; padding:24px 28px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,.07); border-left:5px solid #8b5cf6;">
+  <h2 style="font-size:17px; font-weight:700; border-bottom:2px solid #e2e8f0; padding-bottom:10px; margin-bottom:16px; color:#1e293b;">
+    🔬 추가 과제 제안 — Feature Engineering 실험 후속 로드맵
+  </h2>
+  <p style="font-size:12px;color:#64748b;margin-bottom:18px;">
+    현재 실험(All / Feature Selection / PCA 3가지 전략)에서 확인된 결과를 토대로
+    성능을 더 끌어올리거나 해석력을 높일 수 있는 후속 Feature Engineering 과제를 제안합니다.
+  </p>
+
+  <h3 style="font-size:14px; color:#6d28d9; margin-bottom:10px;">🔴 High Priority</h3>
+  <table style="font-size:13px; margin-bottom:20px;">
+    <thead><tr style="background:#ede9fe;">
+      <th>과제</th><th>현 실험 근거</th><th>제안 방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>① _total 12변수 단독 실험</strong></td>
+        <td>Feature Selection이 48개 선택 → 사실상 전체와 유사, 세부항목 중복</td>
+        <td>CSI total 6 + CCI total 6 = 12변수만으로 동일 모델 재실험</td>
+        <td>변수 수 76% 감소 + 성능 유지 여부 확인 → 경량 운영 모델 근거</td>
+      </tr>
+      <tr>
+        <td><strong>② PCA 컴포넌트 수 민감도 분석</strong></td>
+        <td>95% 분산 기준 25 PC → 최적값 미검증</td>
+        <td>n_components = 5/10/15/20/25/30/95% 분산 별 성능 곡선 그리기</td>
+        <td>최소 PC 수 대비 성능 trade-off 확인 → 운영 복잡도 최소화</td>
+      </tr>
+      <tr>
+        <td><strong>③ Incremental Feature Addition 실험</strong></td>
+        <td>어떤 변수가 추가될 때 성능이 뛰는지 미확인</td>
+        <td>앙상블 순위 1위부터 순차 추가하며 Macro AUROC 변화 추적</td>
+        <td>최소 필요 변수 집합(Elbow Point) 식별 + 설문 문항 축소 근거</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:14px; color:#d97706; margin-bottom:10px;">🟡 Mid Priority</h3>
+  <table style="font-size:13px; margin-bottom:20px;">
+    <thead><tr style="background:#fef9c3;">
+      <th>과제</th><th>현 실험 근거</th><th>제안 방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>④ PCA 대비 UMAP / Kernel PCA 비교</strong></td>
+        <td>PCA(선형 압축)가 최고 성능 → 비선형 압축 미탐색</td>
+        <td>UMAP(n_components=10~20) / Kernel PCA(rbf) 동일 모델 비교</td>
+        <td>비선형 구조 존재 시 추가 성능 향상 가능</td>
+      </tr>
+      <tr>
+        <td><strong>⑤ Domain-Knowledge 파생 변수 실험</strong></td>
+        <td>CCI − CSI 차이(신뢰 대비 만족 갭) 등 비즈니스 의미 변수 미시도</td>
+        <td>CCI_total − CSI_total, 최근 분기 대비 변화율(Δ) 등 파생 변수 추가</td>
+        <td>원본보다 압축된 도메인 특화 시그널 발굴</td>
+      </tr>
+      <tr>
+        <td><strong>⑥ Target Encoding (고객사 레이블)</strong></td>
+        <td>client 변수가 앙상블 중요도 Rank 7 — 단순 Label Encoding 한계</td>
+        <td>client별 RPI 평균 기반 Target Encoding + Leave-One-Out 교차검증</td>
+        <td>고객사 히스토리 정보를 피처에 반영, Macro F1 향상 기대</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:14px; color:#16a34a; margin-bottom:10px;">🟢 Low Priority / 탐색적</h3>
+  <table style="font-size:13px;">
+    <thead><tr style="background:#dcfce7;">
+      <th>과제</th><th>배경</th><th>방법</th><th>기대 효과</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>⑦ AutoML 기반 자동 피처 탐색</strong></td>
+        <td>수동 Feature Selection + PCA 외 탐색 공간 미개척</td>
+        <td>FLAML / Optuna + RFECV 조합으로 자동화된 피처 서브셋 탐색</td>
+        <td>인간 직관 넘어선 최적 피처 조합 발견 가능성</td>
+      </tr>
+      <tr>
+        <td><strong>⑧ 시계열 피처 (Lag / Rolling 통계)</strong></td>
+        <td>3개년 데이터 — 직전 분기 CCI가 현재 RPI 예측에 유용할 수 있음</td>
+        <td>고객사별 Lag-1/Lag-2 CCI_total, Rolling Mean 변수 생성 후 실험</td>
+        <td>시계열 패턴 활용으로 예측 정확도 향상</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="background:#f5f3ff; border-radius:8px; padding:14px 18px; margin-top:16px; font-size:12px; line-height:1.9; border-left:4px solid #7c3aed; color:#4c1d95;">
+    <strong>실험 우선 순서 권고</strong><br>
+    현재(All/FS/PCA) → <strong>① _total 12변수</strong> 추가 → <strong>② PCA 민감도</strong> → <strong>③ Incremental 추가</strong> →
+    Elbow Point 확정 후 → <strong>⑤ 파생변수 + ⑥ Target Encoding</strong> → 운영 모델 피처셋 확정
+  </div>
+</div>
+
+</div><!-- /container -->
+</body>
+</html>
